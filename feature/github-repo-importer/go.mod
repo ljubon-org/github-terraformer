@@ -1,13 +1,13 @@
 module github.com/gr-oss-devops/github-repo-importer
 
-go 1.22.3
+go 1.23.0
 
 require (
 	github.com/google/go-github/v67 v67.0.0
 	github.com/shurcooL/githubv4 v0.0.0-20240727222349-48295856cce7
 	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/oauth2 v0.24.0
+	golang.org/x/oauth2 v0.27.0
 	gopkg.in/yaml.v3 v3.0.1
 )
 
