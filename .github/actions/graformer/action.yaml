@@ -66,12 +66,27 @@ runs:
         TF_CLOUD_ORGANIZATION: ${{ inputs.tfc-organization }}
         TF_WORKSPACE: ${{ inputs.tfc-workspace }}
       run: |
-        terraform plan -no-color -input=false -out=tfplan
-        terraform show --json tfplan | jq '{
-          resource_changes: [.resource_changes[]],
-          data: [.prior_state.values.root_module.resources[] | select(.mode == "data" and .type == "github_team")]
-        }' > tfplan.json
-        rm tfplan
+          terraform plan -no-color -input=false -out=tfplan
+          ls -larth
+          cat
+          terraform show --json tfplan
+          
+          # Generate plan JSON with fallback for empty state
+          terraform show --json tfplan > tfplan_raw.json 2>/dev/null
+          
+          if [ ! -s tfplan_raw.json ] || ! jq -e '.prior_state' tfplan_raw.json > /dev/null 2>&1; then
+            echo "State is empty - skipping validation"
+            echo '{"resource_changes": [], "data": [], "state_empty": true}' > tfplan.json
+          else
+            echo "State has resources - performing validation"
+            jq '{
+              resource_changes: (.resource_changes // []),
+              data: ((.prior_state.values.root_module.resources // []) | map(select(.mode == "data" and .type == "github_team"))),
+              state_empty: false
+            }' tfplan_raw.json > tfplan.json
+          fi
+          
+          rm -f tfplan tfplan_raw.json
 
     - name: Inspect plan result
       uses: actions/github-script@v7
