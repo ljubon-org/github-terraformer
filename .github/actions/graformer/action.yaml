@@ -67,12 +67,17 @@ runs:
         TF_WORKSPACE: ${{ inputs.tfc-workspace }}
       run: |
           terraform plan -no-color -input=false -out=tfplan
-          
+
           # Generate plan JSON with fallback for empty state
           terraform show --json tfplan > tfplan_raw.json 2>/dev/null
 
-          # Check if state has resources (not just if prior_state exists)
-          if [ ! -s tfplan_raw.json ] || ! jq -e '(.prior_state.values.root_module.resources // [] | length) > 0' tfplan_raw.json > /dev/null 2>&1; then
+          # Check if state has resources (checking both root and child modules)
+          has_resources=$(jq -r '
+            ((.prior_state.values.root_module.resources // []) | length) > 0 or
+            ((.prior_state.values.root_module.child_modules // []) | length) > 0
+          ' tfplan_raw.json 2>/dev/null || echo "false")
+
+          if [ "$has_resources" != "true" ]; then
             echo "State is empty - no existing data sources"
             # Extract resource_changes from plan (to detect creates/imports)
             # but set data sources to empty since state has no resources yet
@@ -83,13 +88,18 @@ runs:
             }' tfplan_raw.json > tfplan.json
           else
             echo "State has resources - extracting data sources"
+            # Extract data sources from both root and child modules
             jq '{
               resource_changes: (.resource_changes // []),
-              data: ((.prior_state.values.root_module.resources // []) | map(select(.mode == "data" and .type == "github_team"))),
+              data: (
+                ((.prior_state.values.root_module.resources // []) +
+                 ((.prior_state.values.root_module.child_modules // []) | map(.resources // []) | add // [])) |
+                map(select(.mode == "data" and .type == "github_team"))
+              ),
               state_empty: false
             }' tfplan_raw.json > tfplan.json
           fi
-          
+
           rm -f tfplan tfplan_raw.json
 
     - name: Inspect plan result
