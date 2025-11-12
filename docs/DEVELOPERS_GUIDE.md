@@ -100,7 +100,39 @@ These are the primary configuration options for each repository.
 
 - **`vulnerability_alerts_enabled`**: *(optional, boolean)* If `true`, vulnerability alerts are enabled.
 
+- **`environments`**: *(optional, object[] [Environment](#environment-configuration))* Configuration for repository environments. Requires `feature_github_environment: true` in import config. When imported, environments are automatically managed by Terraform.
+
 - **`branch_protections_v4`**: *(optional, object[] [BranchProtectionV4](#branch-protection-configuration-v4))* Configuration for branch protection rules.
+
+## Environment Configuration
+
+Configure GitHub deployment environments with protection rules and reviewers.
+
+**Import Control**: Set `feature_github_environment: true` in `import-config.yaml` to import environments.
+
+### Environment Fields
+
+- **`environment`**: *(required, string)* Environment name
+- **`wait_timer`**: *(optional, int)* Delay in seconds (max 43200)
+- **`can_admins_bypass`**: *(optional, bool)* Admin bypass allowed (default: true)
+- **`prevent_self_review`**: *(optional, bool)* Prevent self-approval (default: false)
+- **`reviewers`**: *(optional, object)*
+  - **`users`**: *(string[])* GitHub usernames (max 6 total)
+  - **`teams`**: *(string[])* Team slugs (max 6 total)
+
+  > ⚠️ **IMPORTANT: Team Access Requirement**
+  > Teams specified as reviewers MUST have repository access first!
+  > - Manually grant access at: `https://github.com/{org}/{repo}/settings/access`
+  > - Verify team access at: `https://github.com/orgs/{org}/teams/{team}/repositories`
+  >
+  > **Without repository access, Terraform will apply successfully but teams won't be added as reviewers!**
+
+- **`deployment_ref_policy`**: *(optional, object)* Controls which branches/tags can deploy
+  - **EITHER** `protected_branches_policy: true` (protected branches only)
+  - **OR** `selected_branches_or_tags_policy` with `branch_patterns` and/or `tag_patterns`
+  - **Note**: These options are mutually exclusive
+
+**📖 For complete guide with examples, see [feature_github_environment.md](feature_github_environment.md)**
 
 ## Template Configuration
 

@@ -43,6 +43,7 @@ type Repository struct {
 	Rulesets                   []Ruleset             `yaml:"rulesets,omitempty"`
 	VulnerabilityAlertsEnabled *bool                 `yaml:"vulnerability_alerts_enabled,omitempty"`
 	BranchProtectionsV4        []*BranchProtectionV4 `yaml:"branch_protections_v4,omitempty"`
+	Environments               []Environment         `yaml:"environments,omitempty"`
 }
 
 type RepositoryTemplate struct {
@@ -55,4 +56,30 @@ type Pages struct {
 	Branch    *string `yaml:"branch,omitempty" jsonschema:"required"`
 	Path      *string `yaml:"path,omitempty"`
 	BuildType *string `yaml:"build_type,omitempty" jsonschema:"required,enum=workflow,enum=legacy"`
+}
+
+type Environment struct {
+	Environment         string                `yaml:"environment"`
+	WaitTimer           *int                  `yaml:"wait_timer,omitempty"`
+	CanAdminsBypass     *bool                 `yaml:"can_admins_bypass,omitempty"`
+	PreventSelfReview   *bool                 `yaml:"prevent_self_review,omitempty"` // Extracted from ProtectionRules in API response
+	Reviewers           *EnvironmentReviewers `yaml:"reviewers,omitempty"`
+	DeploymentRefPolicy *DeploymentRefPolicy  `yaml:"deployment_ref_policy,omitempty"`
+}
+
+type EnvironmentReviewers struct {
+	Teams []string `yaml:"teams,omitempty"` // Team slugs (e.g., "platform-team")
+	Users []string `yaml:"users,omitempty"` // GitHub usernames (e.g., "octocat")
+}
+
+// DeploymentRefPolicy represents the new structure for deployment reference policies
+type DeploymentRefPolicy struct {
+	ProtectedBranchesPolicy        *bool                           `yaml:"protected_branches_policy,omitempty"`
+	SelectedBranchesOrTagsPolicy   *SelectedBranchesOrTagsPolicy   `yaml:"selected_branches_or_tags_policy,omitempty"`
+}
+
+// SelectedBranchesOrTagsPolicy contains branch and tag patterns for custom deployment policies
+type SelectedBranchesOrTagsPolicy struct {
+	BranchPatterns []string `yaml:"branch_patterns,omitempty"` // e.g., ["release/*", "main"]
+	TagPatterns    []string `yaml:"tag_patterns,omitempty"`    // e.g., ["v*", "release-*"]
 }
