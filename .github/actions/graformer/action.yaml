@@ -68,8 +68,8 @@ runs:
       run: |
         terraform plan -no-color -input=false -out=tfplan
         terraform show --json tfplan | jq '{
-          resource_changes: [.resource_changes[]],
-          data: [.prior_state.values.root_module.resources[] | select(.mode == "data" and .type == "github_team")]
+          resource_changes: [(.resource_changes // [])[]],
+          data: [(.prior_state.values.root_module.resources // [])[] | select(.mode == "data" and .type == "github_team")]
         }' > tfplan.json
         rm tfplan
 
