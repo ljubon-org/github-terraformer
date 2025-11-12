@@ -127,9 +127,9 @@ variable "merge_commit_title" {
 }
 
 variable "web_commit_signoff_required" {
-    description = "(Optional) Set to true to require commit signoff for all commits pushed to the repository. (Default: null)"
-    type        = bool
-    default     = null
+  description = "(Optional) Set to true to require commit signoff for all commits pushed to the repository. (Default: null)"
+  type        = bool
+  default     = null
 }
 
 variable "merge_commit_message" {
@@ -596,6 +596,48 @@ variable "app_installations" {
   type        = set(string)
   description = "(Optional) A list of GitHub App IDs to be installed in this repository."
   default     = []
+}
+
+variable "environments" {
+  type        = any
+  description = "(Optional) Configure repository environments with deployment protection rules and reviewers."
+  # type = list(object({
+  #   environment         = string
+  #   wait_timer          = optional(number)
+  #   can_admins_bypass   = optional(bool)
+  #   prevent_self_review = optional(bool)
+  #   reviewers = optional(object({
+  #     teams = optional(list(string))
+  #     users = optional(list(string))
+  #   }))
+  #   deployment_branch_policy = optional(object({
+  #     protected_branches = bool  # Set to true to restrict to protected branches only
+  #                                # Set to false or omit to allow any branch to deploy
+  #   }))
+  # }))
+
+  default = []
+
+  # Example:
+  # environments = [
+  #   {
+  #     environment         = "production"
+  #     wait_timer          = 300  # seconds (5 minutes)
+  #     can_admins_bypass   = false
+  #     prevent_self_review = true
+  #     reviewers = {
+  #       teams = ["platform-team"]
+  #       users = ["octocat", "hubot"]
+  #     }
+  #     deployment_branch_policy = {
+  #       protected_branches     = true
+  #     }
+  #   },
+  #   {
+  #     environment = "staging"
+  #     # No deployment_branch_policy = any branch can deploy
+  #   }
+  # ]
 }
 
 # ------------------------------------------------------------------------------

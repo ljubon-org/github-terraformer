@@ -37,7 +37,7 @@ jobs:
       - name: Checkout GCSS
         uses: actions/checkout@v4
         with:
-          repository: G-Research/github-terraformer
+          repository: ljubon-org/github-terraformer
           ref: ${{ inputs.gcss_ref }}
           persist-credentials: false
 
@@ -55,7 +55,7 @@ jobs:
       - name: Setup vars
         id: setup-vars
         run: |
-          date_suffix=$(date +%Y%m%d)
+          date_suffix=$(date +%Y%m%d%H%M)
           echo "full_repo_name=${{ github.repository_owner }}/${{ inputs.repo_name }}" >> $GITHUB_OUTPUT
           echo "automation_branch_name=import/${{ github.repository_owner }}/${{ inputs.repo_name }}/$date_suffix" >> $GITHUB_OUTPUT    
 
