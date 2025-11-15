@@ -150,7 +150,6 @@ resource "github_repository" "repository" {
       license_template,
       gitignore_template,
       template,
-      etag, # Ignore etag changes as it frequently changes on GitHub's side
     ]
   }
 
