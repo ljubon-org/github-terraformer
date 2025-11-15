@@ -2,13 +2,41 @@ import-repo repoName:
   #!/usr/bin/env bash
   go run main.go import {{repoName}}
   IFS='/' read -r owner repo <<< {{repoName}}
-  mkdir -p "../../feature/github-repo-provisioning/gcss_config/importer_tmp_dir/"
-  cp "configs/$owner/$repo.yaml" "../../feature/github-repo-provisioning/gcss_config/importer_tmp_dir/"
+
+  # Check if repository already exists in permanent repos/ directory
+  REPOS_DIR="../../feature/github-repo-provisioning/gcss_config/repos"
+  TMP_DIR="../../feature/github-repo-provisioning/gcss_config/importer_tmp_dir"
+
+  if [ -f "$REPOS_DIR/$repo.yaml" ]; then
+    echo "Repository $repo.yaml already exists in repos/ - updating existing configuration"
+    cp "configs/$owner/$repo.yaml" "$REPOS_DIR/"
+  else
+    echo "Repository $repo.yaml not found in repos/ - placing in importer_tmp_dir for initial import"
+    mkdir -p "$TMP_DIR/"
+    cp "configs/$owner/$repo.yaml" "$TMP_DIR/"
+  fi
 
 import-repos:
+  #!/usr/bin/env bash
   go run main.go bulk-import -c import-config.yaml
-  mkdir -p "../../feature/github-repo-provisioning/gcss_config/importer_tmp_dir/"
-  find configs/"$OWNER" -maxdepth 1 -type f \( -name "*.yaml" -o -name ".*.yaml" \) -print -exec cp {} "../../feature/github-repo-provisioning/gcss_config/importer_tmp_dir/" \;
+
+  REPOS_DIR="../../feature/github-repo-provisioning/gcss_config/repos"
+  TMP_DIR="../../feature/github-repo-provisioning/gcss_config/importer_tmp_dir"
+  mkdir -p "$TMP_DIR/"
+
+  # Process each imported YAML file
+  for yaml_file in configs/"$OWNER"/*.yaml configs/"$OWNER"/.*.yaml 2>/dev/null; do
+    if [ -f "$yaml_file" ]; then
+      repo_name=$(basename "$yaml_file")
+      if [ -f "$REPOS_DIR/$repo_name" ]; then
+        echo "Updating existing $repo_name in repos/"
+        cp "$yaml_file" "$REPOS_DIR/"
+      else
+        echo "Adding new $repo_name to importer_tmp_dir/"
+        cp "$yaml_file" "$TMP_DIR/"
+      fi
+    fi
+  done
 
 test:
   go test ./...

@@ -43,6 +43,7 @@ type Repository struct {
 	Rulesets                   []Ruleset             `yaml:"rulesets,omitempty"`
 	VulnerabilityAlertsEnabled *bool                 `yaml:"vulnerability_alerts_enabled,omitempty"`
 	BranchProtectionsV4        []*BranchProtectionV4 `yaml:"branch_protections_v4,omitempty"`
+	Environments               []Environment         `yaml:"environments,omitempty"`
 }
 
 type RepositoryTemplate struct {
@@ -55,4 +56,22 @@ type Pages struct {
 	Branch    *string `yaml:"branch,omitempty"`
 	Path      *string `yaml:"path,omitempty"`
 	BuildType *string `yaml:"build_type,omitempty"`
+}
+
+type Environment struct {
+	Environment            string                  `yaml:"environment"`
+	WaitTimer              *int                    `yaml:"wait_timer,omitempty"`
+	CanAdminsBypass        *bool                   `yaml:"can_admins_bypass,omitempty"`
+	PreventSelfReview      *bool                   `yaml:"prevent_self_review,omitempty"` // Extracted from ProtectionRules in API response
+	Reviewers              *EnvironmentReviewers   `yaml:"reviewers,omitempty"`
+	DeploymentBranchPolicy *DeploymentBranchPolicy `yaml:"deployment_branch_policy,omitempty"`
+}
+
+type EnvironmentReviewers struct {
+	Teams []string `yaml:"teams,omitempty"` // Team slugs (e.g., "platform-team")
+	Users []string `yaml:"users,omitempty"` // GitHub usernames (e.g., "octocat")
+}
+
+type DeploymentBranchPolicy struct {
+	ProtectedBranches *bool `yaml:"protected_branches,omitempty"`
 }

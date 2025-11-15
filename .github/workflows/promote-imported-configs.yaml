@@ -44,7 +44,7 @@ jobs:
       - name: Checkout GCSS
         uses: actions/checkout@v4
         with:
-          repository: G-Research/github-terraformer
+          repository: ljubon-org/github-terraformer
           ref: ${{ inputs.gcss_ref }}
           persist-credentials: false
 

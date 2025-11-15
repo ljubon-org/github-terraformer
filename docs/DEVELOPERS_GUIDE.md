@@ -90,7 +90,71 @@ These are the primary configuration options for each repository.
 
 - **`vulnerability_alerts_enabled`**: *(optional, boolean)* If `true`, vulnerability alerts are enabled.
 
+- **`environments`**: *(optional, object[] [Environment](#environment-configuration))* Configuration for repository environments. Requires `feature_github_environment: true` in import config. When imported, environments are automatically managed by Terraform.
+
 - **`branch_protections_v4`**: *(optional, object[] [BranchProtectionV4](#branch-protection-configuration-v4))* Configuration for branch protection rules.
+
+## Environment Configuration
+
+Options for configuring GitHub repository environments. Environments are used to configure deployment protection rules and reviewers for specific deployment targets (e.g., production, staging).
+
+> [!IMPORTANT]
+> **Feature Flag Control**
+>
+> **Import Behavior:**
+> - Environments require `feature_github_environment: true` in `import-config.yaml` (disabled by default)
+> - When enabled, the importer fetches environments from GitHub for every repository
+> - If environments exist, they are included in the generated YAML and automatically managed by Terraform
+> - To skip environment import, omit the flag or set `feature_github_environment: false`
+>
+> **Example:**
+> ```yaml
+> # repos/my-app.yaml
+> description: "My app"
+> environments:
+>   - environment: production
+>     ...
+>   - environment: staging
+>     ...
+> ```
+>
+> **Notes:**
+> - Secrets are NOT managed through this configuration - they must be managed separately via GitHub UI or API
+> - To remove environment management: delete the `environments` section from YAML
+
+### Environment Fields
+
+- **`environment`**: *(required, string)* The name of the environment (e.g., "production", "staging", "development").
+
+- **`wait_timer`**: *(optional, integer)* Amount of time to delay a job after the job is initially triggered, in **seconds**. Maximum value is 43200 (12 hours). Example: `300` = 5 minutes.
+
+- **`can_admins_bypass`**: *(optional, boolean)* Whether repository administrators can bypass the environment protections. Default: `true`.
+
+- **`prevent_self_review`**: *(optional, boolean)* Whether a user who created the job is prevented from approving their own job. When importing, this reflects the actual GitHub configuration. When creating new environments, omit this field to use GitHub's default behavior.
+
+- **`reviewers`**: *(optional, object [EnvironmentReviewers](#environment-reviewers-configuration))* Configuration for required reviewers who must approve deployments to this environment.
+
+- **`deployment_branch_policy`**: *(optional, object [DeploymentBranchPolicy](#deployment-branch-policy-configuration))* Configuration for which branches can deploy to this environment.
+
+## Environment Reviewers Configuration
+
+Configuration for users and teams who can review and approve deployments to an environment.
+
+- **`teams`**: *(optional, string[])* Up to 6 team slugs (e.g., `["platform-team", "security-team"]`) who may review jobs that reference the environment. Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed.
+
+- **`users`**: *(optional, string[])* Up to 6 GitHub usernames (e.g., `["octocat", "hubot"]`) who may review jobs that reference the environment. Reviewers must have at least read access to the repository. Only one of the required reviewers needs to approve the job for it to proceed.
+
+## Deployment Branch Policy Configuration
+
+Configuration for controlling which branches can deploy to an environment. **This entire section is optional** - if omitted, any branch can deploy.
+
+- **`protected_branches`**: *(boolean)* Whether only branches with branch protection rules can deploy to this environment.
+  - Set to `true` to restrict deployments to protected branches only
+  - Set to `false` or omit `deployment_branch_policy` entirely to allow any branch to deploy
+
+> **Note**: If `protected_branches` is set to `false`, the `deployment_branch_policy` block will not be created in Terraform, effectively allowing any branch to deploy. This is equivalent to omitting the `deployment_branch_policy` section entirely.
+
+**For detailed examples and use cases**, see [GitHub Environments](docs/github_environments.md).
 
 ## Template Configuration
 

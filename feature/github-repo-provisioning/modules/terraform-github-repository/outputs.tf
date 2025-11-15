@@ -84,6 +84,11 @@ output "app_installations" {
   description = "A map of deploy app installations keyed by installation id."
 }
 
+output "environments" {
+  value       = github_repository_environment.environment
+  description = "A map of repository environments keyed by environment name."
+}
+
 # ----------------------------------------------------------------------------------------------------------------------
 # OUTPUT MODULE CONFIGURATION
 # ----------------------------------------------------------------------------------------------------------------------
