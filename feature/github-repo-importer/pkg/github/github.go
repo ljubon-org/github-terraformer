@@ -935,30 +935,33 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 			}
 		}
 
-		// Handle deployment ref policy
+		// Handle deployment policy
 		if env.DeploymentBranchPolicy != nil {
-			deploymentRefPolicy := &DeploymentRefPolicy{}
+			deploymentPolicy := &DeploymentPolicy{}
 
-			// Set protected_branches_policy based on the protected_branches value
-			if env.DeploymentBranchPolicy.ProtectedBranches != nil {
-				protectedBranches := *env.DeploymentBranchPolicy.ProtectedBranches
-				deploymentRefPolicy.ProtectedBranchesPolicy = &protectedBranches
-			}
+			// Determine policy type based on protected_branches and custom_branch_policies
+			if env.DeploymentBranchPolicy.ProtectedBranches != nil && *env.DeploymentBranchPolicy.ProtectedBranches {
+				// Protected branches only
+				deploymentPolicy.PolicyType = "protected_branches"
+			} else if env.DeploymentBranchPolicy.CustomBranchPolicies != nil && *env.DeploymentBranchPolicy.CustomBranchPolicies {
+				// Custom branch/tag patterns
+				deploymentPolicy.PolicyType = "selected_branches_and_tags"
 
-			// Check if custom_branch_policies is true
-			if env.DeploymentBranchPolicy.CustomBranchPolicies != nil && *env.DeploymentBranchPolicy.CustomBranchPolicies {
 				// Fetch deployment branch policies from GitHub API
 				branchPatterns, tagPatterns := fetchDeploymentPolicies(client, owner, repo, env.GetName())
 
-				if len(branchPatterns) > 0 || len(tagPatterns) > 0 {
-					deploymentRefPolicy.SelectedBranchesOrTagsPolicy = &SelectedBranchesOrTagsPolicy{
-						BranchPatterns: branchPatterns,
-						TagPatterns:    tagPatterns,
-					}
+				if len(branchPatterns) > 0 {
+					deploymentPolicy.BranchPatterns = branchPatterns
+				}
+				if len(tagPatterns) > 0 {
+					deploymentPolicy.TagPatterns = tagPatterns
 				}
 			}
 
-			environment.DeploymentRefPolicy = deploymentRefPolicy
+			// Only set deployment policy if we have a valid policy type
+			if deploymentPolicy.PolicyType != "" {
+				environment.DeploymentPolicy = deploymentPolicy
+			}
 		}
 
 		environments = append(environments, environment)

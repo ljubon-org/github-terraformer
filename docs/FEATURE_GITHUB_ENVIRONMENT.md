@@ -23,36 +23,35 @@ environments:
     reviewers:
       users: ["octocat"]
       teams: ["platform-team"]
-    deployment_ref_policy:
-      protected_branches_policy: true
+    deployment_policy:
+      policy_type: protected_branches
 
   # Option 2: Custom branch/tag patterns
   - environment: staging
-    deployment_ref_policy:
-      protected_branches_policy: false  # MUST be false for custom patterns
-      selected_branches_or_tags_policy:
-        branch_patterns:
-          - "release/*"
-          - "main"
-        tag_patterns:
-          - "v*"
+    deployment_policy:
+      policy_type: selected_branches_and_tags
+      branch_patterns:
+        - "release/*"
+        - "main"
+      tag_patterns:
+        - "v*"
 
   # Option 3: Any branch can deploy (no restrictions)
   - environment: development
-    # No deployment_ref_policy = any branch can deploy
+    # No deployment_policy = any branch can deploy
 ```
 
-## ⚠️ Critical Rule: Deployment Policy Mutual Exclusivity
+## ⚠️ Critical Rule: Deployment Policy Types
 
 **You MUST choose ONE of these options:**
 
 | Option | Configuration | Use Case |
 |--------|--------------|----------|
-| **Protected Branches** | `protected_branches_policy: true` | Production - only protected branches |
-| **Custom Patterns** | `protected_branches_policy: false` + patterns | Staging - specific branches/tags |
-| **Any Branch** | Omit `deployment_ref_policy` entirely | Development - no restrictions |
+| **Protected Branches** | `policy_type: protected_branches` | Production - only protected branches |
+| **Custom Patterns** | `policy_type: selected_branches_and_tags` + patterns | Staging - specific branches/tags |
+| **Any Branch** | Omit `deployment_policy` entirely | Development - no restrictions |
 
-**NEVER set both `protected_branches_policy: true` AND `selected_branches_or_tags_policy` together.**
+**The `policy_type` field determines which patterns are used.**
 
 ## Field Reference
 
@@ -64,11 +63,10 @@ environments:
 | `prevent_self_review` | bool | Prevent self-approval | false |
 | `reviewers.users` | string[] | GitHub usernames (max 6 total with teams) | [] |
 | `reviewers.teams` | string[] | Team slugs (max 6 total with users) | [] |
-| `deployment_ref_policy.*` | object | Deployment restrictions | - |
-| ↳ `protected_branches_policy` | bool | Only protected branches | - |
-| ↳ `selected_branches_or_tags_policy.*` | object | Custom patterns | - |
-| ↳↳ `branch_patterns` | string[] | Branch patterns (e.g., `release/*`) | [] |
-| ↳↳ `tag_patterns` | string[] | Tag patterns (e.g., `v*`) | [] |
+| `deployment_policy.*` | object | Deployment restrictions | - |
+| ↳ `policy_type` | string | `protected_branches` or `selected_branches_and_tags` | - |
+| ↳ `branch_patterns` | string[] | Branch patterns (only for `selected_branches_and_tags`) | [] |
+| ↳ `tag_patterns` | string[] | Tag patterns (only for `selected_branches_and_tags`) | [] |
 
 ## Pattern Matching
 
@@ -121,16 +119,15 @@ environments:
     prevent_self_review: true
     reviewers:
       teams: ["platform-team"]
-    deployment_ref_policy:
-      protected_branches_policy: true
+    deployment_policy:
+      policy_type: protected_branches
 
   - environment: staging
     prevent_self_review: true
-    deployment_ref_policy:
-      protected_branches_policy: false
-      selected_branches_or_tags_policy:
-        branch_patterns: ["release/*", "main"]
-        tag_patterns: ["v*", "rc-*"]
+    deployment_policy:
+      policy_type: selected_branches_and_tags
+      branch_patterns: ["release/*", "main"]
+      tag_patterns: ["v*", "rc-*"]
 
   - environment: development
     # No restrictions - any branch can deploy
@@ -141,7 +138,7 @@ environments:
 | Issue | Solution |
 |-------|----------|
 | "reviewers: must be 6 or fewer" | Combined users + teams must be ≤ 6 |
-| Custom policies not working | Ensure `protected_branches_policy: false` |
+| Custom policies not working | Ensure `policy_type: selected_branches_and_tags` |
 | Deployment policies not created | Check `custom_branch_policies = true` in Terraform |
 
 For more configuration options, see [DEVELOPERS_GUIDE.md](DEVELOPERS_GUIDE.md)

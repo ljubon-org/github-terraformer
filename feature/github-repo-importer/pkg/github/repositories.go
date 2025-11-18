@@ -59,12 +59,12 @@ type Pages struct {
 }
 
 type Environment struct {
-	Environment         string                `yaml:"environment"`
-	WaitTimer           *int                  `yaml:"wait_timer,omitempty"`
-	CanAdminsBypass     *bool                 `yaml:"can_admins_bypass,omitempty"`
-	PreventSelfReview   *bool                 `yaml:"prevent_self_review,omitempty"` // Extracted from ProtectionRules in API response
-	Reviewers           *EnvironmentReviewers `yaml:"reviewers,omitempty"`
-	DeploymentRefPolicy *DeploymentRefPolicy  `yaml:"deployment_ref_policy,omitempty"`
+	Environment       string                `yaml:"environment"`
+	WaitTimer         *int                  `yaml:"wait_timer,omitempty"`
+	CanAdminsBypass   *bool                 `yaml:"can_admins_bypass,omitempty"`
+	PreventSelfReview *bool                 `yaml:"prevent_self_review,omitempty"` // Extracted from ProtectionRules in API response
+	Reviewers         *EnvironmentReviewers `yaml:"reviewers,omitempty"`
+	DeploymentPolicy  *DeploymentPolicy     `yaml:"deployment_policy,omitempty"`
 }
 
 type EnvironmentReviewers struct {
@@ -72,14 +72,9 @@ type EnvironmentReviewers struct {
 	Users []string `yaml:"users,omitempty"` // GitHub usernames (e.g., "octocat")
 }
 
-// DeploymentRefPolicy represents the new structure for deployment reference policies
-type DeploymentRefPolicy struct {
-	ProtectedBranchesPolicy        *bool                           `yaml:"protected_branches_policy,omitempty"`
-	SelectedBranchesOrTagsPolicy   *SelectedBranchesOrTagsPolicy   `yaml:"selected_branches_or_tags_policy,omitempty"`
-}
-
-// SelectedBranchesOrTagsPolicy contains branch and tag patterns for custom deployment policies
-type SelectedBranchesOrTagsPolicy struct {
-	BranchPatterns []string `yaml:"branch_patterns,omitempty"` // e.g., ["release/*", "main"]
-	TagPatterns    []string `yaml:"tag_patterns,omitempty"`    // e.g., ["v*", "release-*"]
+// DeploymentPolicy represents the cleaner structure for deployment policies
+type DeploymentPolicy struct {
+	PolicyType     string   `yaml:"policy_type"`                // "protected_branches" or "selected_branches_and_tags"
+	BranchPatterns []string `yaml:"branch_patterns,omitempty"`  // e.g., ["release/*", "main"] - only for selected_branches_and_tags
+	TagPatterns    []string `yaml:"tag_patterns,omitempty"`     // e.g., ["v*"] - only for selected_branches_and_tags
 }

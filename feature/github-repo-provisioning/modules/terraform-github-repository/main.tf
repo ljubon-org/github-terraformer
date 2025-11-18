@@ -649,14 +649,14 @@ resource "github_repository_environment" "environment" {
 
   dynamic "deployment_branch_policy" {
     for_each = (
-      try(each.value.deployment_ref_policy.protected_branches_policy, null) != null ? (
-        # If protected_branches_policy is true, use protected branches
-        try(each.value.deployment_ref_policy.protected_branches_policy, false) == true ? [{
+      try(each.value.deployment_policy.policy_type, null) != null ? (
+        # If policy_type is "protected_branches", use protected branches only
+        try(each.value.deployment_policy.policy_type, "") == "protected_branches" ? [{
           protected_branches     = true
           custom_branch_policies = false
         }] :
-        # If protected_branches_policy is false and we have custom policies, enable custom policies
-        try(each.value.deployment_ref_policy.selected_branches_or_tags_policy, null) != null ? [{
+        # If policy_type is "selected_branches_and_tags", use custom policies
+        try(each.value.deployment_policy.policy_type, "") == "selected_branches_and_tags" ? [{
           protected_branches     = false
           custom_branch_policies = true
         }] : []
@@ -676,7 +676,10 @@ resource "github_repository_environment_deployment_policy" "branch_policies" {
   for_each = {
     for item in flatten([
       for env_name, env in local.environments_map : [
-        for branch_pattern in try(env.deployment_ref_policy.selected_branches_or_tags_policy.branch_patterns, []) : {
+        for branch_pattern in (
+          try(env.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(env.deployment_policy.branch_patterns, []) : []
+        ) : {
           key     = "${env_name}:branch:${branch_pattern}"
           env     = env_name
           pattern = branch_pattern
@@ -698,7 +701,10 @@ resource "github_repository_environment_deployment_policy" "tag_policies" {
   for_each = {
     for item in flatten([
       for env_name, env in local.environments_map : [
-        for tag_pattern in try(env.deployment_ref_policy.selected_branches_or_tags_policy.tag_patterns, []) : {
+        for tag_pattern in (
+          try(env.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(env.deployment_policy.tag_patterns, []) : []
+        ) : {
           key     = "${env_name}:tag:${tag_pattern}"
           env     = env_name
           pattern = tag_pattern

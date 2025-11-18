@@ -115,14 +115,20 @@ Configure GitHub deployment environments with protection rules and reviewers.
   > - Manually grant access at: `https://github.com/{org}/{repo}/settings/access`
   > - Verify team access at: `https://github.com/orgs/{org}/teams/{team}/repositories`
   >
-  > **Without repository access, Terraform will apply successfully but teams won't be added as reviewers!**
+  > **Without repository access, Terraform will apply successfully but teams won't be added as reviewers and next plan/apply will again be shown in expected changes**
 
-- **`deployment_ref_policy`**: *(optional, object)* Controls which branches/tags can deploy
-  - **EITHER** `protected_branches_policy: true` (protected branches only)
-  - **OR** `selected_branches_or_tags_policy` with `branch_patterns` and/or `tag_patterns`
-  - **Note**: These options are mutually exclusive
+- **`deployment_policy`**: *(optional, object)* Controls which branches/tags can deploy to this environment
+  - **`policy_type`**: *(required, enum)* Must be one of:
+    - `"protected_branches"` - Only protected branches can deploy
+    - `"selected_branches_and_tags"` - Specific branch/tag patterns can deploy
+  - **`branch_patterns`**: *(optional, string[])* Branch patterns (e.g., `["main", "release/*"]`)
+    - Only used when `policy_type` is `"selected_branches_and_tags"`
+    - Set to `null` or omit when using `"protected_branches"`
+  - **`tag_patterns`**: *(optional, string[])* Tag patterns (e.g., `["v*"]`)
+    - Only used when `policy_type` is `"selected_branches_and_tags"`
+    - Set to `null` or omit when using `"protected_branches"`
 
-**📖 For complete guide with examples, see [feature_github_environment.md](feature_github_environment.md)**
+**📖 For complete guide with examples, see [FEATURE_GITHUB_ENVIRONMENT.md](FEATURE_GITHUB_ENVIRONMENT.md)**
 
 ## Template Configuration
 
