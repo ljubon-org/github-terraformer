@@ -1,244 +1,210 @@
 # Adding New Features to the Importer
 
-This guide shows how to add new feature-gated functionality to the importer. The architecture is designed to be extremely simple and scalable.
+Quick guide for adding feature-gated functionality to the importer.
 
-## Architecture Overview
+## Architecture
 
-The importer uses a **config-driven feature flag system**:
-- Features are controlled by `config/import-config.yaml`
-- Same compiled binary works for all features
-- Adding features requires **zero changes to CLI or command structure**
-- Perfect for CI/CD workflows
+- Features controlled by `config/import-config.yaml`
+- No CLI changes needed - purely config-driven
+- Single binary works for all features
 
-## Adding a New Feature: Step-by-Step Example
+## Adding a Feature: 5 Steps
 
-Let's add a hypothetical `feature_github_webhooks` feature that imports GitHub repository webhooks.
+### Example: Adding `feature_github_webhooks`
 
-### Step 1: Add Feature Constant
+#### 1. Add Constant
 
-In `pkg/github/constants.go`, add your feature constant:
+`pkg/github/constants.go`:
 
 ```go
 const (
-    // Existing features
     FeatureGithubEnvironment = "feature_github_environment"
-
-    // Your new feature
-    FeatureGithubWebhooks    = "feature_github_webhooks"
+    FeatureGithubWebhooks    = "feature_github_webhooks"  // NEW
 )
 ```
 
-### Step 2: Add Feature Logic in ImportRepo
+#### 2. Add Logic
 
-In `pkg/github/github.go`, add your feature-gated code:
+`pkg/github/github.go` in `ImportRepo()`:
 
 ```go
-func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
-    // ... existing code ...
-
-    // =========================================================================
-    // FEATURE: GitHub Webhooks
-    // =========================================================================
-    var allWebhooks []*github.Hook
-    if cfg != nil && cfg.IsFeatureEnabled(FeatureGithubWebhooks) {
-        webhooks, _, err := v3client.Repositories.ListHooks(
-            context.Background(),
-            repoNameSplit[0],
-            repoNameSplit[1],
-            nil,
-        )
-        if err != nil {
-            fmt.Printf("failed to get webhooks: %v\n", err)
-        } else {
-            allWebhooks = webhooks
-
-            if err := dumpManager.WriteJSONFile("webhooks.json", webhooks); err != nil {
-                fmt.Printf("failed to write webhooks.json: %v\n", err)
-            }
-        }
+// =========================================================================
+// FEATURE: GitHub Webhooks
+// =========================================================================
+var allWebhooks []*github.Hook
+if cfg != nil && cfg.IsFeatureEnabled(FeatureGithubWebhooks) {
+    webhooks, _, err := v3client.Repositories.ListHooks(
+        context.Background(), owner, repo, nil)
+    if err != nil {
+        fmt.Printf("failed to get webhooks: %v\n", err)
+    } else {
+        allWebhooks = webhooks
+        dumpManager.WriteJSONFile("webhooks.json", webhooks)
     }
-
-    // ... rest of code ...
-
-    return &Repository{
-        // ... existing fields ...
-        Webhooks: resolveWebhooks(allWebhooks), // Your resolver function
-    }, nil
 }
 ```
 
-### Step 3: Add Data Structures
+#### 3. Add Data Structure
 
-In `pkg/github/repositories.go`, add the webhook field and structure:
+`pkg/github/repositories.go`:
 
 ```go
 type Repository struct {
     // ... existing fields ...
-    Environments []Environment         `yaml:"environments,omitempty"`
-    Webhooks     []Webhook             `yaml:"webhooks,omitempty"` // New field
+    Webhooks []Webhook `yaml:"webhooks,omitempty"`  // NEW
 }
 
 type Webhook struct {
-    URL          string   `yaml:"url"`
-    ContentType  string   `yaml:"content_type,omitempty"`
-    Events       []string `yaml:"events,omitempty"`
-    Active       bool     `yaml:"active"`
+    URL         string   `yaml:"url"`
+    ContentType string   `yaml:"content_type,omitempty"`
+    Events      []string `yaml:"events,omitempty"`
+    Active      bool     `yaml:"active"`
 }
 ```
 
-### Step 4: Document in Config File
+#### 4. Add Resolver Function
 
-In `gcss-config-repo/config/import-config.yaml`, document your feature:
+`pkg/github/github.go`:
 
-```yaml
-# =============================================================================
-# FEATURE FLAGS
-# =============================================================================
-# Control which features the importer should use when importing repositories.
-# All features are disabled by default and must be explicitly enabled.
-#
-# Available feature flags:
-#
-# feature_github_environment: Import GitHub repository environments
-#   - When enabled, the importer fetches environment configurations from GitHub
-#   - This includes reviewers, deployment policies, and protection rules
-#   - Default: false (disabled - must explicitly enable)
-#   - Usage: Set to true to enable environment import
-#
-# feature_github_webhooks: Import GitHub repository webhooks (example - not implemented)
-#   - When enabled, the importer fetches and includes GitHub webhook configurations
-#   - Webhook secrets are NOT imported (GitHub API limitation)
-#   - Default: false (disabled - must explicitly enable)
-#
-# To enable environment import:
-feature_github_environment: true
-
-# To disable (default behavior):
-#feature_github_environment: false
+```go
+func resolveWebhooks(hooks []*github.Hook) []Webhook {
+    // Convert GitHub API response to YAML structure
+    var webhooks []Webhook
+    for _, hook := range hooks {
+        webhooks = append(webhooks, Webhook{
+            URL:         hook.GetURL(),
+            ContentType: hook.Config["content_type"].(string),
+            Events:      hook.Events,
+            Active:      hook.GetActive(),
+        })
+    }
+    return webhooks
+}
 ```
 
-### Step 5: That's It!
+#### 5. Document in Config
 
-**You're done!** The feature now works with:
+`gcss-config-repo/config/import-config.yaml`:
+
+```yaml
+# feature_github_webhooks: Import repository webhooks
+#   - Webhook secrets are NOT imported (API limitation)
+#   - Default: false
+feature_github_webhooks: true  # Enable the feature
+```
+
+## Usage
 
 ```bash
-# Enable in config/import-config.yaml
-feature_github_webhooks: true
-
-# Run importer (reads config automatically)
+# Enable in import-config.yaml, then:
 go run main.go import owner/repo
-
-# OR run `Bulk import` and verify plan for all repos with webhooks which will be imported in terraform state and yaml
+# or
+go run main.go bulk-import
 ```
 
 ## Key Patterns
 
-### Pattern 1: Feature Check
+### Always Check Config
+
 ```go
 if cfg != nil && cfg.IsFeatureEnabled(FeatureYourFeature) {
-    // Your feature code
+    // Your code
 }
 ```
 
-### Pattern 2: Safe Defaults
-- Always check `cfg != nil` before calling methods
-- Features default to `false` if not in config
-- Log when features are enabled for debugging
+### Error Handling
 
-### Pattern 3: Error Handling
-- Don't fail the entire import if one feature fails
-- Log errors with `fmt.Printf` for debugging
+- Don't fail entire import on feature errors
+- Log with `fmt.Printf`
 - Continue with other features
 
-### Pattern 4: Data Persistence
-- Write API responses to JSON files via `dumpManager.WriteJSONFile()`
-- This helps with debugging and auditing
-- Files are stored in `dumps/<repo-name>/`
+### Data Dumps
 
-## Testing Your Feature
+```go
+dumpManager.WriteJSONFile("feature_data.json", data)
+// Saves to: dumps/<repo-name>/feature_data.json
+```
 
-### Test 1: Feature Disabled (Default)
+## Real Example: GitHub Environments
+
+Current implementation shows the new `deployment_policy` structure:
+
+```go
+// Data structure (pkg/github/repositories.go)
+type Environment struct {
+    Environment      string           `yaml:"environment"`
+    WaitTimer        *int             `yaml:"wait_timer,omitempty"`
+    DeploymentPolicy *DeploymentPolicy `yaml:"deployment_policy,omitempty"`
+}
+
+type DeploymentPolicy struct {
+    PolicyType     string   `yaml:"policy_type"`  // "protected_branches" or "selected_branches_and_tags"
+    BranchPatterns []string `yaml:"branch_patterns,omitempty"`
+    TagPatterns    []string `yaml:"tag_patterns,omitempty"`
+}
+
+// Logic (pkg/github/github.go ~line 940)
+if env.DeploymentBranchPolicy != nil {
+    deploymentPolicy := &DeploymentPolicy{}
+
+    if env.DeploymentBranchPolicy.ProtectedBranches != nil &&
+       *env.DeploymentBranchPolicy.ProtectedBranches {
+        deploymentPolicy.PolicyType = "protected_branches"
+    } else if env.DeploymentBranchPolicy.CustomBranchPolicies != nil &&
+              *env.DeploymentBranchPolicy.CustomBranchPolicies {
+        deploymentPolicy.PolicyType = "selected_branches_and_tags"
+        // Fetch patterns from API
+        branchPatterns, tagPatterns := fetchDeploymentPolicies(...)
+        deploymentPolicy.BranchPatterns = branchPatterns
+        deploymentPolicy.TagPatterns = tagPatterns
+    }
+
+    if deploymentPolicy.PolicyType != "" {
+        environment.DeploymentPolicy = deploymentPolicy
+    }
+}
+```
+
+## Testing
+
 ```bash
-# Without feature flag (should skip your feature)
+# 1. Feature disabled (default)
 go run main.go import owner/repo
-# Check: dumps/owner-repo/ should NOT have your JSON file
-```
+# Should NOT create dumps/owner-repo/webhooks.json
 
-### Test 2: Feature Enabled
-```yaml
-# In import-config.yaml
-feature_your_feature: true
-```
-
-```bash
+# 2. Feature enabled
+echo "feature_github_webhooks: true" >> import-config.yaml
 go run main.go import owner/repo
-# Check: dumps/owner-repo/ should have your JSON file
-# Check: YAML output should include your data
-```
+# Should create dumps/owner-repo/webhooks.json
 
-### Test 3: Bulk Import
-```bash
+# 3. Bulk import
 go run main.go bulk-import
-# Should respect feature flag for all repos
+# Respects feature flag for all repos
 ```
 
-## Real-World Example: GitHub Environments
+## Do's and Don'ts
 
-See the `feature_github_environment` implementation as a complete reference:
+✅ **DO**
 
-1. **Constant**: `pkg/github/constants.go:39`
-   ```go
-   FeatureGithubEnvironment = "feature_github_environment"
-   ```
+- Use `cfg.IsFeatureEnabled()`
+- Handle errors gracefully
+- Write dumps for debugging
+- Document in import-config.yaml
 
-2. **Logic**: `pkg/github/github.go:105-143`
-   ```go
-   if cfg != nil && cfg.IsFeatureEnabled(FeatureGithubEnvironment) {
-       // Fetch environments with pagination
-       // Write to JSON dump
-       // Store in allEnvironments
-   }
-   ```
+❌ **DON'T**
 
-3. **Data Structure**: `pkg/github/repositories.go:60-77`
-   ```go
-   type Environment struct {
-       Environment             string
-       WaitTimer               *int
-       // ... more fields
-   }
-   ```
+- Add CLI flags or parameters
+- Fail on missing data
+- Skip nil checks
+- Forget documentation
 
-4. **Resolution**: `pkg/github/github.go:667-720`
-   ```go
-   func resolveEnvironments(envs []*github.Environment) []Environment {
-       // Convert GitHub API response to YAML structure
-   }
-   ```
+## Quick Reference
 
-## Benefits of This Architecture
+| File | Purpose |
+|------|---------|
+| `pkg/github/constants.go` | Define feature constant |
+| `pkg/github/github.go` | Add feature logic in ImportRepo() |
+| `pkg/github/repositories.go` | Define data structures |
+| `config/import-config.yaml` | Document & enable feature |
 
-✅ **No CLI Changes** - Features are purely config-driven
-✅ **Single Binary** - One build works everywhere
-✅ **CI/CD Friendly** - Change config without rebuilding
-✅ **Backward Compatible** - Features default to disabled
-✅ **Scalable** - Add unlimited features without refactoring
-✅ **Type Safe** - Constants prevent typos
-✅ **Self-Documenting** - Feature names clearly describe functionality
-
-## Common Pitfalls to Avoid
-
-❌ **Don't add function parameters** - Use `cfg.IsFeatureEnabled()` instead
-❌ **Don't add CLI flags** - Keep it config-driven
-❌ **Don't fail on missing data** - Handle errors gracefully
-❌ **Don't forget nil checks** - Always check `cfg != nil`
-❌ **Don't skip documentation** - Update import-config.yaml
-
-## Need Help?
-
-- Review existing features: `FeatureGithubEnvironment`
-- Check the code comments in `pkg/github/github.go:105-113`
-- Look at `pkg/github/constants.go:36-43` for examples
-- Read `config/import-config.yaml` for feature documentation
-
-The architecture is intentionally simple - if you follow the 5 steps above, your feature will work perfectly with the existing system!
+That's it! Follow these 5 steps and your feature will integrate seamlessly.

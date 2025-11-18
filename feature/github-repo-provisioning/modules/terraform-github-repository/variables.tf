@@ -610,16 +610,18 @@ variable "environments" {
   #     teams = optional(list(string))
   #     users = optional(list(string))
   #   }))
-  #   deployment_branch_policy = optional(object({
-  #     protected_branches = bool  # Set to true to restrict to protected branches only
-  #                                # Set to false or omit to allow any branch to deploy
+  #   deployment_policy = optional(object({
+  #     policy_type     = string                    # "protected_branches" or "selected_branches_and_tags"
+  #     branch_patterns = optional(list(string))    # Only for selected_branches_and_tags
+  #     tag_patterns    = optional(list(string))    # Only for selected_branches_and_tags
   #   }))
   # }))
 
   default = []
 
-  # Example:
+  # Examples:
   # environments = [
+  #   # Example 1: Protected branches only
   #   {
   #     environment         = "production"
   #     wait_timer          = 300  # seconds (5 minutes)
@@ -629,13 +631,31 @@ variable "environments" {
   #       teams = ["platform-team"]
   #       users = ["octocat", "hubot"]
   #     }
-  #     deployment_branch_policy = {
-  #       protected_branches     = true
+  #     deployment_policy = {
+  #       policy_type = "protected_branches"
   #     }
   #   },
+  #
+  #   # Example 2: Selected branches and tags
   #   {
-  #     environment = "staging"
-  #     # No deployment_branch_policy = any branch can deploy
+  #     environment         = "staging"
+  #     wait_timer          = 60
+  #     can_admins_bypass   = true
+  #     prevent_self_review = false
+  #     reviewers = {
+  #       users = ["developer1"]
+  #     }
+  #     deployment_policy = {
+  #       policy_type     = "selected_branches_and_tags"
+  #       branch_patterns = ["main", "release/*", "hotfix/*"]
+  #       tag_patterns    = ["v*", "release-*"]
+  #     }
+  #   },
+  #
+  #   # Example 3: Any branch can deploy (no restrictions)
+  #   {
+  #     environment = "development"
+  #     # No deployment_policy = any branch can deploy
   #   }
   # ]
 }
