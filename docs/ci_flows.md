@@ -1,3 +1,4 @@
+# GitHub API -> YAML -> Terraform flow
 
 ```mermaid
 graph TD
@@ -42,9 +43,9 @@ graph TD
     style MODULE fill:#fce4ec
 ```
 
-# 🔍 Detailed Process Breakdown
+## 🔍 Detailed Process Breakdown
 
-# 1️⃣ GitHub Import (github-repo-importer)
+### 1️⃣ GitHub Import (github-repo-importer)
 
 Location: `feature/github-repo-importer/`
 
@@ -54,10 +55,11 @@ go run main.go bulk-import -c import-config.yaml
 - Creates YAML files in: configs/{owner}/*.yaml
 ```
 
-# 2️⃣ YAML Storage Locations
+### 2️⃣ YAML Storage Locations
 
-  Execution Context: Where each command runs from
-```
+Execution Context: Where each command runs from
+
+```yaml
   | Stage                     | Full Path                                                                                         | Executed From Directory           |
   |---------------------------|---------------------------------------------------------------------------------------------------|-----------------------------------|
   | 1. After Import           | /home/.../github-terraformer/feature/github-repo-importer/configs/{owner}/*.yaml                  | feature/github-repo-importer/     |
@@ -69,7 +71,7 @@ go run main.go bulk-import -c import-config.yaml
 
 Directory Structure:
 
-```sh
+```bash
   github-terraformer/
   ├── feature/
   │   ├── github-repo-importer/           # 🔧 Import tool runs here
@@ -93,20 +95,18 @@ Copies from: `configs/{owner}/*.yaml`
 
 Copies to:   `../github-repo-provisioning/gcss_config/{repos or importer_tmp_dir}/`
 
-## Important Note:
+#### Important Note: __The gcss_config/ directory is actually a checkout of the gcss-config-repo (done by GitHub Actions), not a permanent part of github-terraformer!__
 
-  The gcss_config/ directory is actually a checkout of the gcss-config-repo (done by GitHub Actions), not a permanent part of github-terraformer!
-
-# 3️⃣ YAML → Terraform Transformation
+### 3️⃣ YAML → Terraform Transformation
 
 ```hcl
 # In main.tf - YAML becomes Terraform data
 locals {
-# Read YAML files and decode them
-    generated_repos = {
-        for file_path in fileset(..., "importer_tmp_dir/*.yaml") :
-        basename(file_path) => yamldecode(file(file_path))  # ← YAML → HCL
-    }
+  generated_repos = {
+    # Read YAML files and decode them 
+    for file_path in fileset(path.module, "gcss_config/importer_tmp_dir/*.yaml") :
+    basename(file_path) => yamldecode(file(file_path))  # YAML → HCL
+  }
 }
 ```
 
@@ -114,43 +114,43 @@ YAML structure becomes module variables
 
 ```hcl
 module "repository" {
-    for_each = local.all_repos
+  for_each = local.all_repos
 
-    # YAML fields map to module inputs
-    name         = each.key                          # From filename
-    description  = try(each.value.description, "")   # From YAML content
-    visibility   = try(each.value.visibility, "")    # From YAML content
-    environments = try(each.value.environments, [])  # From YAML content
+  # YAML fields map to module inputs
+  name         = each.key                          # From filename
+  description  = try(each.value.description, "")   # From YAML content
+  visibility   = try(each.value.visibility, "")    # From YAML content
+  environments = try(each.value.environments, [])  # From YAML content
 }
 ```
 
-# 4️⃣ Example YAML → Resource Flow
+### 4️⃣ Example YAML → Resource Flow
 
 ```yaml
-YAML File (123123123.yaml):
+YAML File (demo1.yaml):
 description: "My repo"
 visibility: public
 environments:
-- environment: tesdt12
-    wait_timer: 44
+- environment: development
+    wait_timer: 30
     reviewers:
     users:
-        - ljubon
+        - octocat
 ```
 
-Becomes Terraform Resources:
+#### Becomes Terraform Resources
 
 If in `importer_tmp_dir/` → Import block generated
 
-```hcl 
+```hcl
 import {
-    to = module.repository["123123123"].github_repository.repository
-    id = "123123123"
+    to = module.repository["demo1"].github_repository.repository
+    id = "demo1"
 }
 
 import {
-    to = module.repository["123123123"].github_repository_environment.environment["tesdt12"]
-    id = "123123123:tesdt12"
+    to = module.repository["demo1"].github_repository_environment.environment["development"]
+    id = "demo1:development"
 }
 ```
 
@@ -158,24 +158,24 @@ Module creates actual resources
 
 ```hcl
 module "repository" {
-    # YAML filename → module key
-    for_each = { "123123123" = <yaml_content> }
+  # YAML filename → module key
+  for_each = { "demo1" = <yaml_content> }
 
-    # YAML fields → module variables
-    name = "123123123"
-    description = "My repo"
-    visibility = "public"
-    environments = [{
-        environment = "tesdt12"
-        wait_timer = 44
-        reviewers = { users = ["ljubon"] }
-    }]
+  # YAML fields → module variables
+  name = "demo1"
+  description = "My repo"
+  visibility = "public"
+  environments = [{
+    environment = "development"
+    wait_timer = 44
+    reviewers = { users = ["octocat"] }
+  }]
 }
 ```
 
-# 5️⃣ Decision Tree
+### 5️⃣ Decision Tree
 
-```bash
+```yaml
   Is repo already in repos/?
   ├─ YES → Update existing file in repos/
   │        └─ Terraform updates resource

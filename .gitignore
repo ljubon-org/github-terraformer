@@ -42,16 +42,7 @@ feature/github-repo-provisioning/.terraform
 feature/github-repo-provisioning/.terraform/*
 feature/github-repo-provisioning/app-list.yaml
 feature/github-repo-provisioning/import-config.yaml
-feature/github-repo-provisioning/backend.tf
-feature/github-repo-provisioning/gcss_config/*
-!feature/github-repo-provisioning/gcss_config/.gitkeep
-
-feature/*/tfplan
-
-# Local development
-feature/*/.env
 
 feature/github-repo-importer/dumps/*
 feature/github-repo-importer/configs/*
-feature/github-repo-importer/import-config.yaml
-feature/github-repo-importer/app-list.yaml
+feature/github-repo-provisioning/backend.tf
