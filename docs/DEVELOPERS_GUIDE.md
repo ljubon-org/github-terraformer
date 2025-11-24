@@ -132,9 +132,7 @@ Configure GitHub deployment environments with protection rules and reviewers.
     - `"protected_branches"` - Only protected branches can deploy
     - `"selected_branches_and_tags"` - Specific branch/tag patterns can deploy
   - **`branch_patterns`**: *(optional, string[])* Branch patterns (e.g., `["main", "release/*"]`). Only used when `policy_type` is `"selected_branches_and_tags"`. Set to `null` or omit when using `"protected_branches"`
-  - **`tag_patterns`**: *(optional, string[])* Tag patterns (e.g., `["v*"]`)
-    - Only used when `policy_type` is `"selected_branches_and_tags"`
-    - Set to `null` or omit when using `"protected_branches"`
+  - **`tag_patterns`**: *(optional, string[])* Tag patterns (e.g., `["v*"]`). Only used when `policy_type` is `"selected_branches_and_tags"`. Set to `null` or omit when using `"protected_branches"`
 
 **📖 For complete guide with examples, see [FEATURE_GITHUB_ENVIRONMENT.md](FEATURE_GITHUB_ENVIRONMENT.md)**
 
