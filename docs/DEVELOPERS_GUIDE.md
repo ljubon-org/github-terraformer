@@ -121,6 +121,7 @@ Configure GitHub deployment environments with protection rules and reviewers.
   - **`teams`**: *(string[])* Team slugs (max 6 total)
 
   > ⚠️ **IMPORTANT: Team Access Requirement**
+  >
   > Teams specified as reviewers MUST have repository access first!
   > - Manually grant access at: `https://github.com/{org}/{repo}/settings/access`
   > - Verify team access at: `https://github.com/orgs/{org}/teams/{team}/repositories`
