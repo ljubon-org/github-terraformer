@@ -125,7 +125,7 @@ Configure GitHub deployment environments with protection rules and reviewers.
   > - Manually grant access at: `https://github.com/{org}/{repo}/settings/access`
   > - Verify team access at: `https://github.com/orgs/{org}/teams/{team}/repositories`
   >
-  > **Without repository access, Terraform will apply successfully but teams won't be added as reviewers and next plan/apply will again be shown in expected changes**
+  > **Without repository access, Terraform will apply successfully but teams won't be added as reviewers and next plan/apply will show them as proposed changes**
 
 - **`deployment_policy`**: *(optional, object)* Controls which branches/tags can deploy to this environment
   - **`policy_type`**: *(required, enum)* Must be one of:
