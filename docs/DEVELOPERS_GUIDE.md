@@ -128,7 +128,7 @@ Configure GitHub deployment environments with protection rules and reviewers.
   > **Without repository access, Terraform will apply successfully but teams won't be added as reviewers and next plan/apply will show them as proposed changes**
 
 - **`deployment_policy`**: *(optional, object)* Controls which branches/tags can deploy to this environment
-  - **`policy_type`**: *(required, enum)* Must be one of:
+  - **`policy_type`**: *(required, string)* Must be one of:
     - `"protected_branches"` - Only protected branches can deploy
     - `"selected_branches_and_tags"` - Specific branch/tag patterns can deploy
   - **`branch_patterns`**: *(optional, string[])* Branch patterns (e.g., `["main", "release/*"]`). Only used when `policy_type` is `"selected_branches_and_tags"`. Set to `null` or omit when using `"protected_branches"`
