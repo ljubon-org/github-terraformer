@@ -109,7 +109,7 @@ These are the primary configuration options for each repository.
 ### Environment Fields
 
 - **`environment`**: *(required, string)* Environment name
-- **`wait_timer`**: *(optional, int)* Delay in seconds (max 43200)
+- **`wait_timer`**: *(optional, int)* Delay in minutes (max 43200 or 30 days)
 - **`can_admins_bypass`**: *(optional, bool)* Admin bypass allowed (default: true)
 - **`prevent_self_review`**: *(optional, bool)* Prevent self-approval (default: false)
 - **`reviewers`**: *(optional, object)*
