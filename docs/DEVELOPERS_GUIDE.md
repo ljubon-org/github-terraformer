@@ -106,10 +106,6 @@ These are the primary configuration options for each repository.
 
 ## Environment Configuration
 
-Configure GitHub deployment environments with protection rules and reviewers.
-
-**Import Control**: Set `feature_github_environment: true` in `import-config.yaml` to import environments.
-
 ### Environment Fields
 
 - **`environment`**: *(required, string)* Environment name
