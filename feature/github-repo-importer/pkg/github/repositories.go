@@ -58,23 +58,3 @@ type Pages struct {
 	BuildType *string `yaml:"build_type,omitempty" jsonschema:"required,enum=workflow,enum=legacy"`
 }
 
-type Environment struct {
-	Environment       string                `yaml:"environment"`
-	WaitTimer         *int                  `yaml:"wait_timer,omitempty"`
-	CanAdminsBypass   *bool                 `yaml:"can_admins_bypass,omitempty"`
-	PreventSelfReview *bool                 `yaml:"prevent_self_review,omitempty"` // Extracted from ProtectionRules in API response
-	Reviewers         *EnvironmentReviewers `yaml:"reviewers,omitempty"`
-	DeploymentPolicy  *DeploymentPolicy     `yaml:"deployment_policy,omitempty"`
-}
-
-type EnvironmentReviewers struct {
-	Teams []string `yaml:"teams,omitempty"` // Team slugs (e.g., "platform-team")
-	Users []string `yaml:"users,omitempty"` // GitHub usernames (e.g., "octocat")
-}
-
-// DeploymentPolicy represents the cleaner structure for deployment policies
-type DeploymentPolicy struct {
-	PolicyType     string   `yaml:"policy_type"`                // "protected_branches" or "selected_branches_and_tags"
-	BranchPatterns []string `yaml:"branch_patterns,omitempty"`  // e.g., ["release/*", "main"] - only for selected_branches_and_tags
-	TagPatterns    []string `yaml:"tag_patterns,omitempty"`     // e.g., ["v*"] - only for selected_branches_and_tags
-}
