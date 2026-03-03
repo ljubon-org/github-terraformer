@@ -50,6 +50,7 @@ jobs:
           tfc-token: ${{ secrets.tfc_token }}
           tfc-organization: ${{ inputs.tfc_org }}
           tfc-workspace: ${{ vars.WORKSPACE }}
+          keep-plan: 'true'
 
       - name: Run Terraform apply
         if: steps.graformer.outputs.plan-exitcode == '2'
@@ -57,4 +58,8 @@ jobs:
         env:
           TF_CLOUD_ORGANIZATION: ${{ inputs.tfc_org }}
           TF_WORKSPACE: ${{ vars.WORKSPACE }}
-        run: terraform apply -no-color -input=false -auto-approve
+        run: terraform apply -no-color -input=false ${{ steps.graformer.outputs.plan-file }}
+
+      - name: Clean up plan file
+        if: always() && steps.graformer.outputs.plan-file != ''
+        run: rm -f "${{ steps.graformer.outputs.plan-file }}"
