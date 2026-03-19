@@ -351,6 +351,195 @@ import {
 # They will be created/updated by Terraform as regular resources
 
 locals {
+  flattened_generated_env_branch_policies = flatten([
+    for repo, config in local.generated_repos : [
+      for environment in try(config.environments, []) : [
+        for branch_pattern in (
+          try(environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(environment.deployment_policy.branch_patterns, []) : []
+        ) : {
+          key        = "${repo}:${environment.environment}:branch:${branch_pattern}"
+          repository = repo
+          env        = environment.environment
+          pattern    = branch_pattern
+        }
+      ]
+    ]
+  ])
+
+  flattened_generated_env_tag_policies = flatten([
+    for repo, config in local.generated_repos : [
+      for environment in try(config.environments, []) : [
+        for tag_pattern in (
+          try(environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(environment.deployment_policy.tag_patterns, []) : []
+        ) : {
+          key        = "${repo}:${environment.environment}:tag:${tag_pattern}"
+          repository = repo
+          env        = environment.environment
+          pattern    = tag_pattern
+        }
+      ]
+    ]
+  ])
+}
+
+import {
+  for_each = { for item in local.flattened_generated_env_branch_policies : item.key => item }
+
+  to = github_repository_environment_deployment_policy.branch_policies[each.key]
+  # Provider import ID format: "repository:environment:pattern" — no branch/tag prefix.
+  # WARNING: branch_pattern and tag_pattern values must not be identical within the same
+  # environment, as the provider import ID cannot distinguish them by type.
+  id = "${each.value.repository}:${each.value.env}:${each.value.pattern}"
+}
+
+import {
+  for_each = { for item in local.flattened_generated_env_tag_policies : item.key => item }
+
+  to = github_repository_environment_deployment_policy.tag_policies[each.key]
+  # Provider import ID format: "repository:environment:pattern" — no branch/tag prefix.
+  # WARNING: branch_pattern and tag_pattern values must not be identical within the same
+  # environment, as the provider import ID cannot distinguish them by type.
+  id = "${each.value.repository}:${each.value.env}:${each.value.pattern}"
+}
+
+# ---------------------------------------------------------------------------------------------------------------------
+# Root-level Environments Management
+# All environment resources are managed here, not in the child module.
+# ---------------------------------------------------------------------------------------------------------------------
+
+locals {
+  all_environments_flattened = flatten([
+    for repo, config in local.all_repos : [
+      for environment in try(config.environments, []) : {
+        repository  = repo
+        environment = environment
+      }
+    ]
+  ])
+
+  all_environments_map = {
+    for item in local.all_environments_flattened :
+    "${item.repository}:${item.environment.environment}" => item
+  }
+
+  all_reviewer_usernames = distinct(flatten([
+    for item in local.all_environments_flattened :
+    try(item.environment.reviewers.users, [])
+  ]))
+
+  all_reviewer_team_slugs = distinct(flatten([
+    for item in local.all_environments_flattened :
+    try(item.environment.reviewers.teams, [])
+  ]))
+}
+
+data "github_user" "reviewer" {
+  for_each = toset(local.all_reviewer_usernames)
+  username = each.value
+}
+
+data "github_team" "env_reviewer" {
+  for_each = toset(local.all_reviewer_team_slugs)
+  slug     = each.value
+}
+
+resource "github_repository_environment" "environment" {
+  for_each = local.all_environments_map
+
+  environment         = each.value.environment.environment
+  repository          = each.value.repository
+  wait_timer          = try(each.value.environment.wait_timer, null)
+  can_admins_bypass   = try(each.value.environment.can_admins_bypass, true)
+  prevent_self_review = try(each.value.environment.prevent_self_review, false)
+
+  dynamic "reviewers" {
+    for_each = try(each.value.environment.reviewers, null) != null ? [each.value.environment.reviewers] : []
+
+    content {
+      teams = try(reviewers.value.teams, null) != null ? [
+        for team_slug in reviewers.value.teams : data.github_team.env_reviewer[team_slug].id
+      ] : null
+
+      users = try(reviewers.value.users, null) != null ? [
+        for username in reviewers.value.users : data.github_user.reviewer[username].id
+      ] : null
+    }
+  }
+
+  dynamic "deployment_branch_policy" {
+    for_each = (
+      try(each.value.environment.deployment_policy.policy_type, null) != null ? (
+        try(each.value.environment.deployment_policy.policy_type, "") == "protected_branches" ? [{
+          protected_branches     = true
+          custom_branch_policies = false
+        }] :
+        try(each.value.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ? [{
+          protected_branches     = false
+          custom_branch_policies = true
+        }] : []
+      ) : []
+    )
+
+    content {
+      protected_branches     = deployment_branch_policy.value.protected_branches
+      custom_branch_policies = deployment_branch_policy.value.custom_branch_policies
+    }
+  }
+
+  depends_on = [module.repository]
+}
+
+resource "github_repository_environment_deployment_policy" "branch_policies" {
+  for_each = {
+    for item in flatten([
+      for env_key, env_item in local.all_environments_map : [
+        for branch_pattern in (
+          try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(env_item.environment.deployment_policy.branch_patterns, []) : []
+        ) : {
+          key        = "${env_item.repository}:${env_item.environment.environment}:branch:${branch_pattern}"
+          repository = env_item.repository
+          env        = env_item.environment.environment
+          pattern    = branch_pattern
+        }
+      ]
+    ]) : item.key => item
+  }
+
+  repository     = each.value.repository
+  environment    = github_repository_environment.environment["${each.value.repository}:${each.value.env}"].environment
+  branch_pattern = each.value.pattern
+
+  depends_on = [github_repository_environment.environment]
+}
+
+resource "github_repository_environment_deployment_policy" "tag_policies" {
+  for_each = {
+    for item in flatten([
+      for env_key, env_item in local.all_environments_map : [
+        for tag_pattern in (
+          try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(env_item.environment.deployment_policy.tag_patterns, []) : []
+        ) : {
+          key        = "${env_item.repository}:${env_item.environment.environment}:tag:${tag_pattern}"
+          repository = env_item.repository
+          env        = env_item.environment.environment
+          pattern    = tag_pattern
+        }
+      ]
+    ]) : item.key => item
+  }
+
+  repository  = each.value.repository
+  environment = github_repository_environment.environment["${each.value.repository}:${each.value.env}"].environment
+  tag_pattern = each.value.pattern
+
+  depends_on = [github_repository_environment.environment]
+}
+
+locals {
   new_rulesets_flattened = flatten([
     for repo, config in local.new_repos : [
       for ruleset in try(config.rulesets, []) : {
