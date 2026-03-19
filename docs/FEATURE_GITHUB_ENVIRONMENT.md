@@ -7,7 +7,8 @@ This guide explains how to configure GitHub repository environments using the YA
 ### Enable Environment Import
 ```yaml
 # gcss-config-repo/config/import-config.yaml
-feature_github_environment: true  # Required to import environments
+features:
+  github_environments: true  # Required to import environments
 ```
 
 ### Environment Configuration
