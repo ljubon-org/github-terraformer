@@ -354,10 +354,10 @@ locals {
   flattened_generated_env_branch_policies = flatten([
     for repo, config in local.generated_repos : [
       for environment in try(config.environments, []) : [
-        for branch_pattern in (
+        for branch_pattern in(
           try(environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
           try(environment.deployment_policy.branch_patterns, []) : []
-        ) : {
+          ) : {
           key        = "${repo}:${environment.environment}:branch:${branch_pattern}"
           repository = repo
           env        = environment.environment
@@ -370,10 +370,10 @@ locals {
   flattened_generated_env_tag_policies = flatten([
     for repo, config in local.generated_repos : [
       for environment in try(config.environments, []) : [
-        for tag_pattern in (
+        for tag_pattern in(
           try(environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
           try(environment.deployment_policy.tag_patterns, []) : []
-        ) : {
+          ) : {
           key        = "${repo}:${environment.environment}:tag:${tag_pattern}"
           repository = repo
           env        = environment.environment
@@ -437,10 +437,10 @@ locals {
   all_env_branch_policies_map = {
     for item in flatten([
       for env_key, env_item in local.all_environments_map : [
-        for branch_pattern in (
+        for branch_pattern in(
           try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
           try(env_item.environment.deployment_policy.branch_patterns, []) : []
-        ) : {
+          ) : {
           key        = "${env_item.repository}:${env_item.environment.environment}:branch:${branch_pattern}"
           repository = env_item.repository
           env        = env_item.environment.environment
@@ -453,10 +453,10 @@ locals {
   all_env_tag_policies_map = {
     for item in flatten([
       for env_key, env_item in local.all_environments_map : [
-        for tag_pattern in (
+        for tag_pattern in(
           try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
           try(env_item.environment.deployment_policy.tag_patterns, []) : []
-        ) : {
+          ) : {
           key        = "${env_item.repository}:${env_item.environment.environment}:tag:${tag_pattern}"
           repository = env_item.repository
           env        = env_item.environment.environment
@@ -623,7 +623,7 @@ data "github_team" "ruleset_team" {
 
 locals {
   builtin_github_sources = {
-    "Any source" = 0
+    "Any source"     = 0
     "GitHub Actions" = 15368
   }
 }
@@ -727,7 +727,7 @@ resource "github_repository_ruleset" "ruleset" {
         dynamic "required_check" {
           for_each = try(required_status_checks.value.required_check, [])
           content {
-            context       = required_check.value.context
+            context        = required_check.value.context
             integration_id = (startswith(required_check.value.source, "app/") ? local.apps_map[required_check.value.source].app_id : local.builtin_github_sources[required_check.value.source])
           }
         }
