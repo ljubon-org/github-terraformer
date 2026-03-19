@@ -4,23 +4,23 @@ Quick guide for adding feature-gated functionality to the importer.
 
 ## Architecture
 
-- Features controlled by `config/import-config.yaml`
+- Features controlled by `config/import-config.yaml` under the `features:` key
 - No CLI changes needed - purely config-driven
 - Single binary works for all features
 
-## Adding a Feature: 5 Steps
+## Adding a Feature: 4 Steps
 
-### Example: Adding `feature_github_webhooks`
+### Example: Adding `github_webhooks`
 
-#### 1. Add Constant
+#### 1. Add field to `Features` struct
 
-`pkg/github/constants.go`:
+`pkg/github/config.go`:
 
 ```go
-const (
-    FeatureGithubEnvironment = "feature_github_environment"
-    FeatureGithubWebhooks    = "feature_github_webhooks"  // NEW
-)
+type Features struct {
+    GithubEnvironments bool `yaml:"github_environments"`
+    GithubWebhooks     bool `yaml:"github_webhooks"`  // NEW
+}
 ```
 
 #### 2. Add Logic
@@ -32,7 +32,7 @@ const (
 // FEATURE: GitHub Webhooks
 // =========================================================================
 var allWebhooks []*github.Hook
-if cfg != nil && cfg.IsFeatureEnabled(FeatureGithubWebhooks) {
+if cfg != nil && cfg.Features != nil && cfg.Features.GithubWebhooks {
     webhooks, _, err := v3client.Repositories.ListHooks(
         context.Background(), owner, repo, nil)
     if err != nil {
@@ -62,41 +62,20 @@ type Webhook struct {
 }
 ```
 
-#### 4. Add Resolver Function
+#### 4. Document in Config
 
-`pkg/github/github.go`:
-
-```go
-func resolveWebhooks(hooks []*github.Hook) []Webhook {
-    // Convert GitHub API response to YAML structure
-    var webhooks []Webhook
-    for _, hook := range hooks {
-        webhooks = append(webhooks, Webhook{
-            URL:         hook.GetURL(),
-            ContentType: hook.Config["content_type"].(string),
-            Events:      hook.Events,
-            Active:      hook.GetActive(),
-        })
-    }
-    return webhooks
-}
-```
-
-#### 5. Document in Config
-
-`gcss-config-repo/config/import-config.yaml`:
+`gcss-config-repo/config/import-config.yaml` — add to the `features:` block:
 
 ```yaml
-# feature_github_webhooks: Import repository webhooks
-#   - Webhook secrets are NOT imported (API limitation)
-#   - Default: false
-feature_github_webhooks: true  # Enable the feature
+features:
+  github_environments: true
+  github_webhooks: true  # NEW: Import repository webhooks
 ```
 
 ## Usage
 
 ```bash
-# Enable in import-config.yaml, then:
+# Enable in import-config.yaml under features:, then:
 go run main.go import owner/repo
 # or
 go run main.go bulk-import
@@ -104,10 +83,10 @@ go run main.go bulk-import
 
 ## Key Patterns
 
-### Always Check Config
+### Always Check Config and Features
 
 ```go
-if cfg != nil && cfg.IsFeatureEnabled(FeatureYourFeature) {
+if cfg != nil && cfg.Features != nil && cfg.Features.YourFeature {
     // Your code
 }
 ```
@@ -127,53 +106,24 @@ dumpManager.WriteJSONFile("feature_data.json", data)
 
 ## Real Example: GitHub Environments
 
-Current implementation shows the new `deployment_policy` structure:
+Current implementation in `pkg/github/github.go`:
 
 ```go
-// Data structure (pkg/github/repositories.go)
-type Environment struct {
-    Environment      string           `yaml:"environment"`
-    WaitTimer        *int             `yaml:"wait_timer,omitempty"`
-    DeploymentPolicy *DeploymentPolicy `yaml:"deployment_policy,omitempty"`
-}
-
-type DeploymentPolicy struct {
-    PolicyType     string   `yaml:"policy_type"`  // "protected_branches" or "selected_branches_and_tags"
-    BranchPatterns []string `yaml:"branch_patterns,omitempty"`
-    TagPatterns    []string `yaml:"tag_patterns,omitempty"`
-}
-
-// Logic (pkg/github/github.go ~line 940)
-if env.DeploymentBranchPolicy != nil {
-    deploymentPolicy := &DeploymentPolicy{}
-
-    if env.DeploymentBranchPolicy.ProtectedBranches != nil &&
-       *env.DeploymentBranchPolicy.ProtectedBranches {
-        deploymentPolicy.PolicyType = "protected_branches"
-    } else if env.DeploymentBranchPolicy.CustomBranchPolicies != nil &&
-              *env.DeploymentBranchPolicy.CustomBranchPolicies {
-        deploymentPolicy.PolicyType = "selected_branches_and_tags"
-        // Fetch patterns from API
-        branchPatterns, tagPatterns := fetchDeploymentPolicies(...)
-        deploymentPolicy.BranchPatterns = branchPatterns
-        deploymentPolicy.TagPatterns = tagPatterns
-    }
-
-    if deploymentPolicy.PolicyType != "" {
-        environment.DeploymentPolicy = deploymentPolicy
-    }
+if cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments {
+    // fetch environments from GitHub API...
 }
 ```
 
 ## Testing
 
 ```bash
-# 1. Feature disabled (default)
+# 1. Feature disabled (default — features block absent or field false)
 go run main.go import owner/repo
 # Should NOT create dumps/owner-repo/webhooks.json
 
-# 2. Feature enabled
-echo "feature_github_webhooks: true" >> import-config.yaml
+# 2. Feature enabled — in import-config.yaml:
+# features:
+#   github_webhooks: true
 go run main.go import owner/repo
 # Should create dumps/owner-repo/webhooks.json
 
@@ -186,25 +136,26 @@ go run main.go bulk-import
 
 ✅ **DO**
 
-- Use `cfg.IsFeatureEnabled()`
+- Use direct field access on `cfg.Features`
+- Guard with `cfg != nil && cfg.Features != nil`
 - Handle errors gracefully
 - Write dumps for debugging
-- Document in import-config.yaml
+- Document in `import-config.yaml` under `features:`
 
 ❌ **DON'T**
 
+- Add string constants for feature names
 - Add CLI flags or parameters
 - Fail on missing data
 - Skip nil checks
-- Forget documentation
 
 ## Quick Reference
 
 | File | Purpose |
 |------|---------|
-| `pkg/github/constants.go` | Define feature constant |
-| `pkg/github/github.go` | Add feature logic in ImportRepo() |
+| `pkg/github/config.go` | Add field to `Features` struct |
+| `pkg/github/github.go` | Add feature logic in `ImportRepo()` |
 | `pkg/github/repositories.go` | Define data structures |
-| `config/import-config.yaml` | Document & enable feature |
+| `config/import-config.yaml` | Document & enable feature under `features:` |
 
-That's it! Follow these 5 steps and your feature will integrate seamlessly.
+That's it! Follow these 4 steps and your feature will integrate seamlessly.
