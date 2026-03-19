@@ -350,59 +350,9 @@ import {
 # Environments from new_repos (repos/ directory) are NOT imported
 # They will be created/updated by Terraform as regular resources
 
-locals {
-  flattened_generated_env_branch_policies = flatten([
-    for repo, config in local.generated_repos : [
-      for environment in try(config.environments, []) : [
-        for branch_pattern in(
-          try(environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
-          try(environment.deployment_policy.branch_patterns, []) : []
-          ) : {
-          key        = "${repo}:${environment.environment}:branch:${branch_pattern}"
-          repository = repo
-          env        = environment.environment
-          pattern    = branch_pattern
-        }
-      ]
-    ]
-  ])
-
-  flattened_generated_env_tag_policies = flatten([
-    for repo, config in local.generated_repos : [
-      for environment in try(config.environments, []) : [
-        for tag_pattern in(
-          try(environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
-          try(environment.deployment_policy.tag_patterns, []) : []
-          ) : {
-          key        = "${repo}:${environment.environment}:tag:${tag_pattern}"
-          repository = repo
-          env        = environment.environment
-          pattern    = tag_pattern
-        }
-      ]
-    ]
-  ])
-}
-
-import {
-  for_each = { for item in local.flattened_generated_env_branch_policies : item.key => item }
-
-  to = github_repository_environment_deployment_policy.branch_policies[each.key]
-  # Provider import ID format: "repository:environment:pattern" — no branch/tag prefix.
-  # WARNING: branch_pattern and tag_pattern values must not be identical within the same
-  # environment, as the provider import ID cannot distinguish them by type.
-  id = "${each.value.repository}:${each.value.env}:${each.value.pattern}"
-}
-
-import {
-  for_each = { for item in local.flattened_generated_env_tag_policies : item.key => item }
-
-  to = github_repository_environment_deployment_policy.tag_policies[each.key]
-  # Provider import ID format: "repository:environment:pattern" — no branch/tag prefix.
-  # WARNING: branch_pattern and tag_pattern values must not be identical within the same
-  # environment, as the provider import ID cannot distinguish them by type.
-  id = "${each.value.repository}:${each.value.env}:${each.value.pattern}"
-}
+# Deployment policies for generated_repos are NOT imported — the provider requires a
+# numeric policy ID for import which cannot be determined from YAML config alone.
+# Terraform will create/update/delete them as regular resources.
 
 # ---------------------------------------------------------------------------------------------------------------------
 # Root-level Environments Management
