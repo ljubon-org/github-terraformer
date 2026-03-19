@@ -57,12 +57,8 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 	fmt.Println("Importing repository: ", repoName)
 
 	// Log enabled features
-	if cfg != nil && cfg.Features != nil {
-		for featureName, enabled := range cfg.Features {
-			if enabled {
-				fmt.Printf("Feature enabled: %s\n", featureName)
-			}
-		}
+	if cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments {
+		fmt.Println("Feature enabled: github_environments")
 	}
 
 	if !isValidRepoFormat(repoName) {
@@ -106,21 +102,13 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 	// =========================================================================
 	// FEATURE: GitHub Environments
 	// =========================================================================
-	// Feature flag: feature_github_environment (default: DISABLED - opt-in feature)
-	// Set feature_github_environment: true in import-config.yaml to enable environment import.
+	// Feature flag: features.github_environments (default: DISABLED - opt-in feature)
+	// Set features.github_environments: true in import-config.yaml to enable environment import.
 	//
 	// When enabled, environments are imported from GitHub and managed by Terraform.
 	var allEnvironments []*github.Environment
 
-	// Check if feature is enabled (defaults to false - opt-in feature)
-	enableEnvironments := false
-	if cfg != nil && cfg.Features != nil {
-		if enabled, exists := cfg.Features[FeatureGithubEnvironment]; exists {
-			enableEnvironments = enabled
-		}
-	}
-
-	if enableEnvironments {
+	if cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments {
 		envOpts := &github.EnvironmentListOptions{
 			ListOptions: github.ListOptions{PerPage: 100},
 		}
