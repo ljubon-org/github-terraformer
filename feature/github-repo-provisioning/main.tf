@@ -410,14 +410,27 @@ import {
 # ---------------------------------------------------------------------------------------------------------------------
 
 locals {
-  all_environments_flattened = flatten([
-    for repo, config in local.all_repos : [
-      for environment in try(config.environments, []) : {
-        repository  = repo
-        environment = environment
-      }
+  # Build from generated_repos and new_repos independently to avoid merge() precedence
+  # issues: if a repo exists in both importer_tmp_dir/ and repos/, merge(generated_repos,
+  # new_repos) would give new_repos precedence and lose environments from importer_tmp_dir/.
+  all_environments_flattened = flatten(concat(
+    [
+      for repo, config in local.generated_repos : [
+        for environment in try(config.environments, []) : {
+          repository  = repo
+          environment = environment
+        }
+      ]
+    ],
+    [
+      for repo, config in local.new_repos : [
+        for environment in try(config.environments, []) : {
+          repository  = repo
+          environment = environment
+        }
+      ] if !contains(keys(local.generated_repos), repo)
     ]
-  ])
+  ))
 
   all_environments_map = {
     for item in local.all_environments_flattened :
