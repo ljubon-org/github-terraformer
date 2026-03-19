@@ -433,6 +433,38 @@ locals {
     for item in local.all_environments_flattened :
     try(item.environment.reviewers.teams, [])
   ]))
+
+  all_env_branch_policies_map = {
+    for item in flatten([
+      for env_key, env_item in local.all_environments_map : [
+        for branch_pattern in (
+          try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(env_item.environment.deployment_policy.branch_patterns, []) : []
+        ) : {
+          key        = "${env_item.repository}:${env_item.environment.environment}:branch:${branch_pattern}"
+          repository = env_item.repository
+          env        = env_item.environment.environment
+          pattern    = branch_pattern
+        }
+      ]
+    ]) : item.key => item
+  }
+
+  all_env_tag_policies_map = {
+    for item in flatten([
+      for env_key, env_item in local.all_environments_map : [
+        for tag_pattern in (
+          try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
+          try(env_item.environment.deployment_policy.tag_patterns, []) : []
+        ) : {
+          key        = "${env_item.repository}:${env_item.environment.environment}:tag:${tag_pattern}"
+          repository = env_item.repository
+          env        = env_item.environment.environment
+          pattern    = tag_pattern
+        }
+      ]
+    ]) : item.key => item
+  }
 }
 
 data "github_user" "reviewer" {
@@ -492,21 +524,7 @@ resource "github_repository_environment" "environment" {
 }
 
 resource "github_repository_environment_deployment_policy" "branch_policies" {
-  for_each = {
-    for item in flatten([
-      for env_key, env_item in local.all_environments_map : [
-        for branch_pattern in (
-          try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
-          try(env_item.environment.deployment_policy.branch_patterns, []) : []
-        ) : {
-          key        = "${env_item.repository}:${env_item.environment.environment}:branch:${branch_pattern}"
-          repository = env_item.repository
-          env        = env_item.environment.environment
-          pattern    = branch_pattern
-        }
-      ]
-    ]) : item.key => item
-  }
+  for_each = local.all_env_branch_policies_map
 
   repository     = each.value.repository
   environment    = github_repository_environment.environment["${each.value.repository}:${each.value.env}"].environment
@@ -516,21 +534,7 @@ resource "github_repository_environment_deployment_policy" "branch_policies" {
 }
 
 resource "github_repository_environment_deployment_policy" "tag_policies" {
-  for_each = {
-    for item in flatten([
-      for env_key, env_item in local.all_environments_map : [
-        for tag_pattern in (
-          try(env_item.environment.deployment_policy.policy_type, "") == "selected_branches_and_tags" ?
-          try(env_item.environment.deployment_policy.tag_patterns, []) : []
-        ) : {
-          key        = "${env_item.repository}:${env_item.environment.environment}:tag:${tag_pattern}"
-          repository = env_item.repository
-          env        = env_item.environment.environment
-          pattern    = tag_pattern
-        }
-      ]
-    ]) : item.key => item
-  }
+  for_each = local.all_env_tag_policies_map
 
   repository  = each.value.repository
   environment = github_repository_environment.environment["${each.value.repository}:${each.value.env}"].environment
