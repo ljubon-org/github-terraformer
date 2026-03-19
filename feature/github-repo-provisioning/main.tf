@@ -305,11 +305,6 @@ module "repository" {
 
   #  app_installations = try(each.value.app_installations, [])
 
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-  # Environments Configuration
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-  environments = try(each.value.environments, [])
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -348,7 +343,7 @@ locals {
 import {
   for_each = local.generated_environments_map
 
-  to = module.repository[each.value.repository].github_repository_environment.environment[each.value.environment.environment]
+  to = github_repository_environment.environment["${each.value.repository}:${each.value.environment.environment}"]
   id = "${each.value.repository}:${each.value.environment.environment}"
 }
 
