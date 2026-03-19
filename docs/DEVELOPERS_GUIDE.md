@@ -100,7 +100,7 @@ These are the primary configuration options for each repository.
 
 - **`vulnerability_alerts_enabled`**: *(optional, boolean)* If `true`, vulnerability alerts are enabled.
 
-- **`environments`**: *(optional, object[] [Environment](#environment-configuration))* Configuration for repository environments. Requires `feature_github_environment: true` in import config. When imported, environments are automatically managed by Terraform.
+- **`environments`**: *(optional, object[] [Environment](#environment-configuration))* Configuration for repository environments.
 
 - **`branch_protections_v4`**: *(optional, object[] [BranchProtectionV4](#branch-protection-configuration-v4))* Configuration for branch protection rules.
 
