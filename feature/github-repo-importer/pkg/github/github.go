@@ -884,6 +884,16 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 				}
 			}
 
+			// GitHub allows a maximum of 6 reviewers in total (users + teams combined)
+			if len(protectionReviewers.Users)+len(protectionReviewers.Teams) > 6 {
+				return nil, fmt.Errorf("environment %q has %d total reviewers (users: %d, teams: %d): GitHub allows max 6 reviewers",
+					env.GetName(),
+					len(protectionReviewers.Users)+len(protectionReviewers.Teams),
+					len(protectionReviewers.Users),
+					len(protectionReviewers.Teams),
+				)
+			}
+
 			// Set reviewers if we found any in ProtectionRules
 			if len(protectionReviewers.Teams) > 0 || len(protectionReviewers.Users) > 0 {
 				environment.Reviewers = protectionReviewers

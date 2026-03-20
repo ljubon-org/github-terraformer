@@ -112,9 +112,9 @@ These are the primary configuration options for each repository.
 - **`wait_timer`**: *(optional, int)* Delay in minutes (max 43200 or 30 days)
 - **`can_admins_bypass`**: *(optional, bool)* Admin bypass allowed (default: true)
 - **`prevent_self_review`**: *(optional, bool)* Prevent self-approval (default: false)
-- **`reviewers`**: *(optional, object)*
-  - **`users`**: *(string[])* GitHub usernames (max 6 total)
-  - **`teams`**: *(string[])* Team slugs (max 6 total)
+- **`reviewers`**: *(optional, object)* Max 6 reviewers in total across users and teams combined
+  - **`users`**: *(string[])* GitHub usernames
+  - **`teams`**: *(string[])* Team slugs
 
   > ⚠️ **IMPORTANT: Team Access Requirement**
   >
