@@ -816,8 +816,6 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 		}
 
 		// Extract PreventSelfReview, WaitTimer, and Reviewers from ProtectionRules
-		// All are nested inside ProtectionRules array in the GitHub API
-		// Only set if actually found - don't assume defaults when importing
 		if env.ProtectionRules != nil && len(env.ProtectionRules) > 0 {
 			// We need to extract reviewers from ProtectionRules, not from env.Reviewers
 			protectionReviewers := &EnvironmentReviewers{}
