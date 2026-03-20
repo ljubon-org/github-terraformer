@@ -103,7 +103,7 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 	// When enabled, environments are imported from GitHub and managed by Terraform.
 	var allEnvironments []*github.Environment
 
-	if cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments {
+	if isEnvEnabled(cfg) {
 		envOpts := &github.EnvironmentListOptions{
 			ListOptions: github.ListOptions{PerPage: 100},
 		}
@@ -968,6 +968,10 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 	}
 
 	return environments, nil
+}
+
+func isEnvEnabled(cfg *Config) bool {
+	return cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments
 }
 
 func resolveVisibility(private bool) string {
