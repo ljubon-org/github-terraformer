@@ -116,11 +116,11 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 			environments, res, err := v3client.Repositories.ListEnvironments(context.Background(), repoNameSplit[0], repoNameSplit[1], envOpts)
 			if err != nil {
 				if res != nil && res.StatusCode == http.StatusNotFound {
+					// 404 is normal for repositories that have no environments configured
 					fmt.Printf("environments not found (this is normal for repositories without environments): %v\n", err)
-				} else {
-					fmt.Printf("failed to get environments: %v\n", err)
+					break
 				}
-				break
+				return nil, fmt.Errorf("failed to get environments: %w", err)
 			}
 
 			if err := dumpManager.WriteJSONFile("environments.json", environments); err != nil {
@@ -135,13 +135,9 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 						// Fetch full environment details including reviewers
 						fullEnv, _, err := v3client.Repositories.GetEnvironment(context.Background(), repoNameSplit[0], repoNameSplit[1], *env.Name)
 						if err != nil {
-							fmt.Printf("Warning: failed to get full details for environment %s: %v\n", *env.Name, err)
-							// Use basic info if detailed fetch fails
-							allEnvironments = append(allEnvironments, env)
-						} else {
-							// Use full environment data with all details
-							allEnvironments = append(allEnvironments, fullEnv)
+							return nil, fmt.Errorf("failed to get details for environment %s: %w", *env.Name, err)
 						}
+						allEnvironments = append(allEnvironments, fullEnv)
 					}
 				}
 			}
