@@ -56,11 +56,6 @@ func DecodeAppsList() (*AppsList, error) {
 func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 	fmt.Println("Importing repository: ", repoName)
 
-	// Log enabled features
-	if cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments {
-		fmt.Println("Feature enabled: github_environments")
-	}
-
 	if !isValidRepoFormat(repoName) {
 		return nil, errors.New("invalid repository format. Use owner/repo")
 	}
