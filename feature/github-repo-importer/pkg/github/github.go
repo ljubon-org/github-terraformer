@@ -874,6 +874,10 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 										}
 									}
 								}
+							default:
+								// Unknown reviewer type — either GitHub added a new type or data is corrupt.
+								// Fail the import so we don't silently produce incomplete configuration.
+								return nil, fmt.Errorf("unknown reviewer type %q for environment %q: possible GitHub API change or data corruption", *reqReviewer.Type, env.GetName())
 							}
 						}
 					}
