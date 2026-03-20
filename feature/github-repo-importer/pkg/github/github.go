@@ -891,7 +891,9 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 		if env.DeploymentBranchPolicy != nil {
 			deploymentPolicy := &DeploymentPolicy{}
 
-			// Determine policy type based on protected_branches and custom_branch_policies
+			// Determine policy type based on protected_branches and custom_branch_policies.
+			// Exactly one must be true — if neither is set, the API response is unexpected
+			// (possible GitHub API change or tampered JSON). Fail the import.
 			if env.DeploymentBranchPolicy.ProtectedBranches != nil && *env.DeploymentBranchPolicy.ProtectedBranches {
 				// Protected branches only
 				deploymentPolicy.PolicyType = "protected_branches"
@@ -908,6 +910,8 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 				if len(tagPatterns) > 0 {
 					deploymentPolicy.TagPatterns = tagPatterns
 				}
+			} else {
+				return nil, fmt.Errorf("environment %q has unrecognized deployment policy (neither protected_branches nor custom_branch_policies is set): possible GitHub API change or data corruption", env.GetName())
 			}
 
 			// Only set deployment policy if we have a valid policy type
