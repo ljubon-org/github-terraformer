@@ -801,12 +801,6 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 		return nil, nil
 	}
 
-	// Get organization info to obtain org ID (needed for team lookups)
-	org, _, err := client.Organizations.Get(context.Background(), owner)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get organization info: %w", err)
-	}
-
 	var environments []Environment
 	for _, env := range envs {
 		environment := Environment{
@@ -890,46 +884,6 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 			// Set reviewers if we found any in ProtectionRules
 			if len(protectionReviewers.Teams) > 0 || len(protectionReviewers.Users) > 0 {
 				environment.Reviewers = protectionReviewers
-			}
-		}
-
-		// Handle reviewers at top level (fallback if not in ProtectionRules)
-		// API may return array of EnvReviewers with Type and ID
-		// We resolve IDs to human-readable names (usernames and team slugs)
-		// Note: This is usually empty as reviewers are typically in ProtectionRules
-		if env.Reviewers != nil && len(env.Reviewers) > 0 && environment.Reviewers == nil {
-			reviewers := &EnvironmentReviewers{}
-
-			// Separate reviewers by type and resolve IDs to names
-			for _, reviewer := range env.Reviewers {
-				if reviewer.Type != nil && reviewer.ID != nil {
-					switch *reviewer.Type {
-					case "Team":
-						// Resolve team ID to team slug
-						team, _, err := client.Teams.GetTeamByID(context.Background(), org.GetID(), *reviewer.ID)
-						if err != nil {
-							fmt.Printf("Warning: failed to resolve team ID %d: %v\n", *reviewer.ID, err)
-							continue
-						}
-						if team.Slug != nil {
-							reviewers.Teams = append(reviewers.Teams, *team.Slug)
-						}
-					case "User":
-						// Resolve user ID to username
-						user, _, err := client.Users.GetByID(context.Background(), *reviewer.ID)
-						if err != nil {
-							fmt.Printf("Warning: failed to resolve user ID %d: %v\n", *reviewer.ID, err)
-							continue
-						}
-						if user.Login != nil {
-							reviewers.Users = append(reviewers.Users, *user.Login)
-						}
-					}
-				}
-			}
-
-			if len(reviewers.Teams) > 0 || len(reviewers.Users) > 0 {
-				environment.Reviewers = reviewers
 			}
 		}
 
