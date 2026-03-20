@@ -214,6 +214,11 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 		fmt.Printf("failed to resolve rulesets: %v\n", err)
 	}
 
+	resolvedEnvironments, err := resolveEnvironments(allEnvironments, v3client, repoNameSplit[0], repoNameSplit[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve environments: %w", err)
+	}
+
 	return &Repository{
 		Name:                       repo.GetName(),
 		Owner:                      repo.GetOwner().GetLogin(),
@@ -257,7 +262,7 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 		Rulesets:                   resolvedRulesets,
 		VulnerabilityAlertsEnabled: &vulnerabilityAlertsEnabled,
 		BranchProtectionsV4:        resolveBranchProtectionsFromGraphQL(&branchProtectionRulesGraphQLQuery),
-		Environments:               resolveEnvironments(allEnvironments, v3client, repoNameSplit[0], repoNameSplit[1]),
+		Environments:               resolvedEnvironments,
 	}, nil
 }
 
@@ -796,16 +801,15 @@ func fetchDeploymentPolicies(client *github.Client, owner, repo, envName string)
 	return branchPatterns, tagPatterns
 }
 
-func resolveEnvironments(envs []*github.Environment, client *github.Client, owner, repo string) []Environment {
+func resolveEnvironments(envs []*github.Environment, client *github.Client, owner, repo string) ([]Environment, error) {
 	if len(envs) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Get organization info to obtain org ID (needed for team lookups)
 	org, _, err := client.Organizations.Get(context.Background(), owner)
 	if err != nil {
-		fmt.Printf("Warning: failed to get organization info: %v\n", err)
-		return nil
+		return nil, fmt.Errorf("failed to get organization info: %w", err)
 	}
 
 	var environments []Environment
@@ -954,7 +958,7 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 		environments = append(environments, environment)
 	}
 
-	return environments
+	return environments, nil
 }
 
 func resolveVisibility(private bool) string {
