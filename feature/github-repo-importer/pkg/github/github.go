@@ -56,15 +56,6 @@ func DecodeAppsList() (*AppsList, error) {
 func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 	fmt.Println("Importing repository: ", repoName)
 
-	// Log enabled features
-	if cfg != nil && cfg.Features != nil {
-		for featureName, enabled := range cfg.Features {
-			if enabled {
-				fmt.Printf("Feature enabled: %s\n", featureName)
-			}
-		}
-	}
-
 	if !isValidRepoFormat(repoName) {
 		return nil, errors.New("invalid repository format. Use owner/repo")
 	}
@@ -106,21 +97,13 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 	// =========================================================================
 	// FEATURE: GitHub Environments
 	// =========================================================================
-	// Feature flag: feature_github_environment (default: DISABLED - opt-in feature)
-	// Set feature_github_environment: true in import-config.yaml to enable environment import.
+	// Feature flag: features.github_environments (default: DISABLED - opt-in feature)
+	// Set features.github_environments: true in import-config.yaml to enable environment import.
 	//
 	// When enabled, environments are imported from GitHub and managed by Terraform.
 	var allEnvironments []*github.Environment
 
-	// Check if feature is enabled (defaults to false - opt-in feature)
-	enableEnvironments := false
-	if cfg != nil && cfg.Features != nil {
-		if enabled, exists := cfg.Features[FeatureGithubEnvironment]; exists {
-			enableEnvironments = enabled
-		}
-	}
-
-	if enableEnvironments {
+	if isEnvEnabled(cfg) {
 		envOpts := &github.EnvironmentListOptions{
 			ListOptions: github.ListOptions{PerPage: 100},
 		}
@@ -128,11 +111,11 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 			environments, res, err := v3client.Repositories.ListEnvironments(context.Background(), repoNameSplit[0], repoNameSplit[1], envOpts)
 			if err != nil {
 				if res != nil && res.StatusCode == http.StatusNotFound {
+					// 404 is normal for repositories that have no environments configured
 					fmt.Printf("environments not found (this is normal for repositories without environments): %v\n", err)
-				} else {
-					fmt.Printf("failed to get environments: %v\n", err)
+					break
 				}
-				break
+				return nil, fmt.Errorf("failed to get environments: %w", err)
 			}
 
 			if err := dumpManager.WriteJSONFile("environments.json", environments); err != nil {
@@ -147,13 +130,9 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 						// Fetch full environment details including reviewers
 						fullEnv, _, err := v3client.Repositories.GetEnvironment(context.Background(), repoNameSplit[0], repoNameSplit[1], *env.Name)
 						if err != nil {
-							fmt.Printf("Warning: failed to get full details for environment %s: %v\n", *env.Name, err)
-							// Use basic info if detailed fetch fails
-							allEnvironments = append(allEnvironments, env)
-						} else {
-							// Use full environment data with all details
-							allEnvironments = append(allEnvironments, fullEnv)
+							return nil, fmt.Errorf("failed to get details for environment %s: %w", *env.Name, err)
 						}
+						allEnvironments = append(allEnvironments, fullEnv)
 					}
 				}
 			}
@@ -230,6 +209,11 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 		fmt.Printf("failed to resolve rulesets: %v\n", err)
 	}
 
+	resolvedEnvironments, err := resolveEnvironments(allEnvironments, v3client, repoNameSplit[0], repoNameSplit[1])
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve environments: %w", err)
+	}
+
 	return &Repository{
 		Name:                       repo.GetName(),
 		Owner:                      repo.GetOwner().GetLogin(),
@@ -273,7 +257,7 @@ func ImportRepo(repoName string, cfg *Config) (*Repository, error) {
 		Rulesets:                   resolvedRulesets,
 		VulnerabilityAlertsEnabled: &vulnerabilityAlertsEnabled,
 		BranchProtectionsV4:        resolveBranchProtectionsFromGraphQL(&branchProtectionRulesGraphQLQuery),
-		Environments:               resolveEnvironments(allEnvironments, v3client, repoNameSplit[0], repoNameSplit[1]),
+		Environments:               resolvedEnvironments,
 	}, nil
 }
 
@@ -812,16 +796,9 @@ func fetchDeploymentPolicies(client *github.Client, owner, repo, envName string)
 	return branchPatterns, tagPatterns
 }
 
-func resolveEnvironments(envs []*github.Environment, client *github.Client, owner, repo string) []Environment {
+func resolveEnvironments(envs []*github.Environment, client *github.Client, owner, repo string) ([]Environment, error) {
 	if len(envs) == 0 {
-		return nil
-	}
-
-	// Get organization info to obtain org ID (needed for team lookups)
-	org, _, err := client.Organizations.Get(context.Background(), owner)
-	if err != nil {
-		fmt.Printf("Warning: failed to get organization info: %v\n", err)
-		return nil
+		return nil, nil
 	}
 
 	var environments []Environment
@@ -833,8 +810,6 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 		}
 
 		// Extract PreventSelfReview, WaitTimer, and Reviewers from ProtectionRules
-		// All are nested inside ProtectionRules array in the GitHub API
-		// Only set if actually found - don't assume defaults when importing
 		if env.ProtectionRules != nil && len(env.ProtectionRules) > 0 {
 			// We need to extract reviewers from ProtectionRules, not from env.Reviewers
 			protectionReviewers := &EnvironmentReviewers{}
@@ -886,10 +861,24 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 										}
 									}
 								}
+							default:
+								// Unknown reviewer type — either GitHub added a new type or data is corrupt.
+								// Fail the import so we don't silently produce incomplete configuration.
+								return nil, fmt.Errorf("unknown reviewer type %q for environment %q: possible GitHub API change or data corruption", *reqReviewer.Type, env.GetName())
 							}
 						}
 					}
 				}
+			}
+
+			// GitHub allows a maximum of 6 reviewers in total (users + teams combined)
+			if len(protectionReviewers.Users)+len(protectionReviewers.Teams) > 6 {
+				return nil, fmt.Errorf("environment %q has %d total reviewers (users: %d, teams: %d): GitHub allows max 6 reviewers",
+					env.GetName(),
+					len(protectionReviewers.Users)+len(protectionReviewers.Teams),
+					len(protectionReviewers.Users),
+					len(protectionReviewers.Teams),
+				)
 			}
 
 			// Set reviewers if we found any in ProtectionRules
@@ -898,51 +887,13 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 			}
 		}
 
-		// Handle reviewers at top level (fallback if not in ProtectionRules)
-		// API may return array of EnvReviewers with Type and ID
-		// We resolve IDs to human-readable names (usernames and team slugs)
-		// Note: This is usually empty as reviewers are typically in ProtectionRules
-		if env.Reviewers != nil && len(env.Reviewers) > 0 && environment.Reviewers == nil {
-			reviewers := &EnvironmentReviewers{}
-
-			// Separate reviewers by type and resolve IDs to names
-			for _, reviewer := range env.Reviewers {
-				if reviewer.Type != nil && reviewer.ID != nil {
-					switch *reviewer.Type {
-					case "Team":
-						// Resolve team ID to team slug
-						team, _, err := client.Teams.GetTeamByID(context.Background(), org.GetID(), *reviewer.ID)
-						if err != nil {
-							fmt.Printf("Warning: failed to resolve team ID %d: %v\n", *reviewer.ID, err)
-							continue
-						}
-						if team.Slug != nil {
-							reviewers.Teams = append(reviewers.Teams, *team.Slug)
-						}
-					case "User":
-						// Resolve user ID to username
-						user, _, err := client.Users.GetByID(context.Background(), *reviewer.ID)
-						if err != nil {
-							fmt.Printf("Warning: failed to resolve user ID %d: %v\n", *reviewer.ID, err)
-							continue
-						}
-						if user.Login != nil {
-							reviewers.Users = append(reviewers.Users, *user.Login)
-						}
-					}
-				}
-			}
-
-			if len(reviewers.Teams) > 0 || len(reviewers.Users) > 0 {
-				environment.Reviewers = reviewers
-			}
-		}
-
 		// Handle deployment policy
 		if env.DeploymentBranchPolicy != nil {
 			deploymentPolicy := &DeploymentPolicy{}
 
-			// Determine policy type based on protected_branches and custom_branch_policies
+			// Determine policy type based on protected_branches and custom_branch_policies.
+			// Exactly one must be true — if neither is set, the API response is unexpected
+			// (possible GitHub API change or tampered JSON). Fail the import.
 			if env.DeploymentBranchPolicy.ProtectedBranches != nil && *env.DeploymentBranchPolicy.ProtectedBranches {
 				// Protected branches only
 				deploymentPolicy.PolicyType = "protected_branches"
@@ -959,6 +910,8 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 				if len(tagPatterns) > 0 {
 					deploymentPolicy.TagPatterns = tagPatterns
 				}
+			} else {
+				return nil, fmt.Errorf("environment %q has unrecognized deployment policy (neither protected_branches nor custom_branch_policies is set): possible GitHub API change or data corruption", env.GetName())
 			}
 
 			// Only set deployment policy if we have a valid policy type
@@ -970,7 +923,11 @@ func resolveEnvironments(envs []*github.Environment, client *github.Client, owne
 		environments = append(environments, environment)
 	}
 
-	return environments
+	return environments, nil
+}
+
+func isEnvEnabled(cfg *Config) bool {
+	return cfg != nil && cfg.Features != nil && cfg.Features.GithubEnvironments
 }
 
 func resolveVisibility(private bool) string {
