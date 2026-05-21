@@ -100,7 +100,7 @@ These are the primary configuration options for each repository.
 
 - **`vulnerability_alerts_enabled`**: *(optional, boolean)* If `true`, vulnerability alerts are enabled.
 
-- **`environments`**: *(optional, object[] [Environment](#environment-configuration))* Configuration for repository environments. Requires `feature_github_environment: true` in import config. When imported, environments are automatically managed by Terraform.
+- **`environments`**: *(optional, object[] [Environment](#environment-configuration))* Configuration for repository environments.
 
 - **`branch_protections_v4`**: *(optional, object[] [BranchProtectionV4](#branch-protection-configuration-v4))* Configuration for branch protection rules.
 
@@ -112,9 +112,9 @@ These are the primary configuration options for each repository.
 - **`wait_timer`**: *(optional, int)* Delay in minutes (max 43200 or 30 days)
 - **`can_admins_bypass`**: *(optional, bool)* Admin bypass allowed (default: true)
 - **`prevent_self_review`**: *(optional, bool)* Prevent self-approval (default: false)
-- **`reviewers`**: *(optional, object)*
-  - **`users`**: *(string[])* GitHub usernames (max 6 total)
-  - **`teams`**: *(string[])* Team slugs (max 6 total)
+- **`reviewers`**: *(optional, object)* Max 6 reviewers in total across users and teams combined
+  - **`users`**: *(string[])* GitHub usernames
+  - **`teams`**: *(string[])* Team slugs
 
   > ⚠️ **IMPORTANT: Team Access Requirement**
   >
@@ -130,8 +130,6 @@ These are the primary configuration options for each repository.
     - `"selected_branches_and_tags"` - Specific branch/tag patterns can deploy
   - **`branch_patterns`**: *(optional, string[])* Branch patterns (e.g., `["main", "release/*"]`). Only used when `policy_type` is `"selected_branches_and_tags"`. Set to `null` or omit when using `"protected_branches"`
   - **`tag_patterns`**: *(optional, string[])* Tag patterns (e.g., `["v*"]`). Only used when `policy_type` is `"selected_branches_and_tags"`. Set to `null` or omit when using `"protected_branches"`
-
-**📖 For complete guide with examples, see [FEATURE_GITHUB_ENVIRONMENT.md](FEATURE_GITHUB_ENVIRONMENT.md)**
 
 ## Template Configuration
 

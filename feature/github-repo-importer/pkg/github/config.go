@@ -4,20 +4,16 @@ import (
 	"errors"
 )
 
-type Config struct {
-	IsPublic      *bool             `yaml:"is_public,omitempty"`
-	IgnoredRepos  []string          `yaml:"ignored_repos,omitempty"`
-	SelectedRepos []string          `yaml:"selected_repos,omitempty"`
-	PageSize      *int              `yaml:"page_size,omitempty"`
-	Features      map[string]bool   `yaml:",inline"`
+type Features struct {
+	GithubEnvironments bool `yaml:"github_environments"`
 }
 
-// IsFeatureEnabled checks if a feature flag is enabled (default: false)
-func (c *Config) IsFeatureEnabled(featureName string) bool {
-	if c.Features == nil {
-		return false
-	}
-	return c.Features[featureName]
+type Config struct {
+	IsPublic      *bool     `yaml:"is_public,omitempty"`
+	IgnoredRepos  []string  `yaml:"ignored_repos,omitempty"`
+	SelectedRepos []string  `yaml:"selected_repos,omitempty"`
+	PageSize      *int      `yaml:"page_size,omitempty"`
+	Features      *Features `yaml:"features,omitempty"`
 }
 
 func (c *Config) Validate() error {
